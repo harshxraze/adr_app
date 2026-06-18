@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Naranjo Scale{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>🧮 Naranjo Scale Calculator</h1><p>ADR Probability Scale – Answer 10 questions to assess causality</p></div></div>
+<div class="naranjo-layout">
+  <div class="card">
+    <div id="naranjoQuestions">
+    {% for q in questions %}
+      <div class="naranjo-question">
+        <p><strong>Q{{q.id}}.</strong> {{q.question}}</p>
+        <div class="radio-group">
+          <label class="radio-label"><input type="radio" name="nq_{{q.id}}" value="yes" onchange="calcNaranjo()"> Yes (+{{q.yes}})</label>
+          <label class="radio-label"><input type="radio" name="nq_{{q.id}}" value="no" onchange="calcNaranjo()"> No ({{q.no}})</label>
+          <label class="radio-label"><input type="radio" name="nq_{{q.id}}" value="unknown" checked onchange="calcNaranjo()"> Don't Know (0)</label>
+        </div>
+      </div>
+    {% endfor %}
+    </div>
+  </div>
+  <div>
+    <div class="card" style="position:sticky;top:32px;">
+      <div class="naranjo-score-display">
+        <div class="score" id="naranjoScoreVal" style="color:var(--accent-indigo);">0</div>
+        <div class="category" id="naranjoCatVal">Doubtful</div>
+        <p style="color:var(--text-muted);margin-top:12px;font-size:13px;">Total Naranjo Score</p>
+      </div>
+      <div style="margin-top:20px;font-size:13px;color:var(--text-secondary);">
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-color);"><span>≥ 9</span><span class="badge badge-definite">Definite</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-color);"><span>5 – 8</span><span class="badge badge-probable">Probable</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-color);"><span>1 – 4</span><span class="badge badge-possible">Possible</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;"><span>≤ 0</span><span class="badge badge-doubtful">Doubtful</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .naranjo-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
+  @media (max-width: 768px) {
+    .naranjo-layout { grid-template-columns: 1fr; }
+    .naranjo-layout > div:last-child .card { position: static !important; }
+  }
+</style>
+
+<script>
+const SCORES = {{ questions|tojson }};
+function calcNaranjo() {
+  let total = 0;
+  SCORES.forEach(q => {
+    const sel = document.querySelector('input[name="nq_'+q.id+'"]:checked');
+    if (sel) total += q[sel.value] || 0;
+  });
+  document.getElementById('naranjoScoreVal').textContent = total;
+  let cat = 'Doubtful', color = 'var(--accent-rose)';
+  if (total >= 9) { cat = 'Definite'; color = 'var(--accent-emerald)'; }
+  else if (total >= 5) { cat = 'Probable'; color = 'var(--accent-sky)'; }
+  else if (total >= 1) { cat = 'Possible'; color = 'var(--accent-amber)'; }
+  document.getElementById('naranjoCatVal').textContent = cat;
+  document.getElementById('naranjoScoreVal').style.color = color;
+  document.getElementById('naranjoCatVal').style.color = color;
+}
+</script>
+{% endblock %}

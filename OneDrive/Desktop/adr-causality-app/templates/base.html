@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>{% block title %}ADR Causality Assessment{% endblock %} | PvPI AI System</title>
+  <meta name="description" content="AI-driven Adverse Drug Reaction Causality Assessment System using Naranjo and WHO-UMC scales">
+  <meta name="theme-color" content="#0F6E56">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ADR Analyzer">
+  <link rel="manifest" href="/static/manifest.json">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon">⚕</div>
+        <div class="brand-text">
+          <h2>ADR-AI</h2>
+          <span>Causality System</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <div class="nav-section-title">Overview</div>
+          <a href="/" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
+            <span class="icon">📊</span> Dashboard
+          </a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-title">Reporting</div>
+          <a href="/capture" class="nav-link {% if request.endpoint == 'capture' %}active{% endif %}">
+            <span class="icon">📷</span> Scan Form
+          </a>
+          <a href="/form" class="nav-link {% if request.endpoint == 'adr_form' %}active{% endif %}">
+            <span class="icon">📝</span> New ADR Report
+          </a>
+          <a href="/reports" class="nav-link {% if request.endpoint == 'reports_list' %}active{% endif %}">
+            <span class="icon">📋</span> View Reports
+          </a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-title">Assessment</div>
+          <a href="/naranjo" class="nav-link {% if request.endpoint == 'naranjo_page' %}active{% endif %}">
+            <span class="icon">🧮</span> Naranjo Scale
+          </a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-title">Analytics</div>
+          <a href="/analytics" class="nav-link {% if request.endpoint == 'analytics' %}active{% endif %}">
+            <span class="icon">📈</span> Analytics
+          </a>
+        </div>
+      </nav>
+      <div class="sidebar-footer">ADR Causality Analyzer v2.0<br>IPC – Govt. of India</div>
+    </aside>
+
+    <!-- Sidebar overlay for mobile -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div id="toast-container" class="toast-container"></div>
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  <script src="/static/js/app.js"></script>
+  {% block scripts %}{% endblock %}
+
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/static/sw.js')
+          .then(reg => console.log('SW registered'))
+          .catch(err => console.log('SW error:', err));
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Report #{{report.id}}{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>Report #{{report.id}}</h1><p>Submitted {{report.created_at.strftime('%d %b %Y, %I:%M %p') if report.created_at else '—'}}</p></div>
+  <div style="display:flex;gap:8px;"><a href="/reports" class="btn btn-outline">← Back</a><button class="btn btn-danger btn-sm" onclick="deleteReport({{report.id}})">🗑 Delete</button></div>
+</div>
+
+<div class="report-layout">
+  <div>
+    <!-- Patient Info -->
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-header"><h3>A. Patient Information</h3><span class="badge {{('badge-serious' if report.is_serious else 'badge-non-serious')}}">{{'Serious' if report.is_serious else 'Non-Serious'}}</span></div>
+      <div class="form-grid">
+        <div><span style="color:var(--text-muted);font-size:12px;">Initials</span><p style="font-weight:600;">{{report.patient_initials or '—'}}</p></div>
+        <div><span style="color:var(--text-muted);font-size:12px;">Age</span><p style="font-weight:600;">{{report.patient_age or '—'}}</p></div>
+        <div><span style="color:var(--text-muted);font-size:12px;">Gender</span><p style="font-weight:600;">{{report.gender or '—'}}</p></div>
+        <div><span style="color:var(--text-muted);font-size:12px;">Weight</span><p style="font-weight:600;">{{report.weight_kg or '—'}} Kg</p></div>
+      </div>
+    </div>
+    <!-- Reaction -->
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-header"><h3>B. Suspected Adverse Reaction</h3></div>
+      <div class="form-grid" style="margin-bottom:16px;">
+        <div><span style="color:var(--text-muted);font-size:12px;">Start Date</span><p>{{report.reaction_start_date or '—'}}</p></div>
+        <div><span style="color:var(--text-muted);font-size:12px;">Stop Date</span><p>{{report.reaction_stop_date or '—'}}</p></div>
+        <div><span style="color:var(--text-muted);font-size:12px;">Outcome</span><p>{{report.outcome or '—'}}</p></div>
+      </div>
+      <div><span style="color:var(--text-muted);font-size:12px;">Description</span><p style="margin-top:4px;">{{report.reaction_description or '—'}}</p></div>
+      {% if report.relevant_investigations %}<div style="margin-top:12px;"><span style="color:var(--text-muted);font-size:12px;">Investigations</span><p>{{report.relevant_investigations}}</p></div>{% endif %}
+      {% if report.medical_history %}<div style="margin-top:12px;"><span style="color:var(--text-muted);font-size:12px;">Medical History</span><p>{{report.medical_history}}</p></div>{% endif %}
+    </div>
+    <!-- Medications -->
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-header"><h3>C. Suspected Medications</h3></div>
+      {% if report.medications %}
+      <div class="table-container"><table><thead><tr><th>#</th><th>Drug</th><th>Dose</th><th>Route</th><th>Freq</th><th>Dates</th><th>Action</th><th>Rechallenge</th></tr></thead><tbody>
+      {% for m in report.medications %}
+      <tr><td>{{m.serial_no}}</td><td><strong>{{m.drug_name or '—'}}</strong><br><small>{{m.manufacturer or ''}}</small></td><td>{{m.dose or '—'}}</td><td>{{m.route or '—'}}</td><td>{{m.frequency or '—'}}</td><td><small>{{m.therapy_start_date or '?'}} → {{m.therapy_stop_date or '?'}}</small></td><td>{{m.action_taken or '—'}}</td><td>{{m.reintroduction_result or '—'}}</td></tr>
+      {% endfor %}
+      </tbody></table></div>
+      {% else %}<p style="color:var(--text-muted);">No medications recorded.</p>{% endif %}
+    </div>
+  </div>
+
+  <!-- Right: Assessment Results -->
+  <div>
+    <div class="card" style="margin-bottom:20px;border-color:var(--accent-indigo);">
+      <div class="card-header"><h3>🔬 Causality Assessment</h3></div>
+      <div class="results-panel" style="background:transparent;border:none;padding:0;">
+        <div class="result-item"><span>WHO-UMC</span><span class="badge badge-{{(report.who_umc_category or '')|lower|replace('/','')}}">{{report.who_umc_category or 'N/A'}}</span></div>
+        <div class="result-item"><span>Naranjo Score</span><strong style="font-size:20px;">{{report.naranjo_score if report.naranjo_score is not none else 'N/A'}}</strong></div>
+        <div class="result-item"><span>Naranjo Category</span><span class="badge badge-{{(report.naranjo_category or '')|lower}}">{{report.naranjo_category or 'N/A'}}</span></div>
+      </div>
+    </div>
+    <!-- Reporter -->
+    <div class="card">
+      <div class="card-header"><h3>D. Reporter</h3></div>
+      <div><span style="color:var(--text-muted);font-size:12px;">Name</span><p>{{report.reporter_name or '—'}}</p></div>
+      <div style="margin-top:8px;"><span style="color:var(--text-muted);font-size:12px;">Occupation</span><p>{{report.reporter_occupation or '—'}}</p></div>
+      <div style="margin-top:8px;"><span style="color:var(--text-muted);font-size:12px;">Contact</span><p>{{report.reporter_email or ''}} {{report.reporter_contact or ''}}</p></div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .report-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
+  @media (max-width: 768px) { .report-layout { grid-template-columns: 1fr; } }
+</style>
+
+<script>
+async function deleteReport(id) {
+  if (!confirm('Delete this report permanently?')) return;
+  const r = await fetch('/api/report/' + id, {method:'DELETE'});
+  const d = await r.json();
+  if (d.success) { window.location.href = '/reports'; } else { alert('Error: ' + d.error); }
+}
+</script>
+{% endblock %}

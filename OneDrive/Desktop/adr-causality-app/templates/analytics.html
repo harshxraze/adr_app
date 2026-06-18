@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Analytics{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>📈 Analytics Dashboard</h1><p>Insights from ADR reports and causality assessments</p></div></div>
+<div class="stats-grid" id="statsCards"><div class="spinner"></div></div>
+<div class="analytics-charts">
+  <div class="card"><div class="card-header"><h3>WHO-UMC Distribution</h3></div><canvas id="whoChart" height="250"></canvas></div>
+  <div class="card"><div class="card-header"><h3>Naranjo Distribution</h3></div><canvas id="naranjoChart" height="250"></canvas></div>
+  <div class="card"><div class="card-header"><h3>Gender Distribution</h3></div><canvas id="genderChart" height="250"></canvas></div>
+  <div class="card"><div class="card-header"><h3>Outcome Distribution</h3></div><canvas id="outcomeChart" height="250"></canvas></div>
+  <div class="card" style="grid-column:1/-1;"><div class="card-header"><h3>Reports Over Time</h3></div><canvas id="timeChart" height="150"></canvas></div>
+  <div class="card" style="grid-column:1/-1;"><div class="card-header"><h3>Top Suspected Drugs</h3></div><canvas id="drugsChart" height="200"></canvas></div>
+</div>
+
+<style>
+  .analytics-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px; }
+  @media (max-width: 768px) { .analytics-charts { grid-template-columns: 1fr; } .analytics-charts .card[style*="grid-column"] { grid-column: auto; } }
+</style>
+
+<script>
+const COLORS = ['#6366f1','#10b981','#f59e0b','#f43f5e','#0ea5e9','#a855f7','#ec4899','#14b8a6'];
+const chartOpts = { responsive:true, maintainAspectRatio:true, plugins:{legend:{labels:{color:'#94a3b8',font:{family:'Inter'}}}} };
+
+function makeChart(id, type, labels, data, label) {
+  const colors = labels.map((_,i) => COLORS[i % COLORS.length]);
+  new Chart(document.getElementById(id), {
+    type, data: { labels, datasets: [{ label, data, backgroundColor: colors, borderColor: type==='line'?'#6366f1':colors, borderWidth: type==='line'?2:1, fill: type==='line', tension:0.4 }] },
+    options: { ...chartOpts, scales: type==='pie'||type==='doughnut' ? {} : { x:{ticks:{color:'#64748b'}}, y:{ticks:{color:'#64748b'},beginAtZero:true} } }
+  });
+}
+
+fetch('/api/analytics/stats').then(r=>r.json()).then(d => {
+  document.getElementById('statsCards').innerHTML = `
+    <div class="stat-card indigo"><div class="stat-icon">📄</div><div class="stat-info"><h4>${d.total_reports}</h4><p>Total Reports</p></div></div>
+    <div class="stat-card rose"><div class="stat-icon">⚠️</div><div class="stat-info"><h4>${d.serious_reports}</h4><p>Serious ADRs</p></div></div>
+    <div class="stat-card emerald"><div class="stat-icon">👤</div><div class="stat-info"><h4>${d.gender_distribution.male+d.gender_distribution.female+d.gender_distribution.other}</h4><p>Total Patients</p></div></div>
+    <div class="stat-card amber"><div class="stat-icon">💊</div><div class="stat-info"><h4>${Object.keys(d.top_drugs).length}</h4><p>Unique Drugs</p></div></div>`;
+  const wk = Object.keys(d.who_umc_distribution), wv = Object.values(d.who_umc_distribution);
+  if(wk.length) makeChart('whoChart','doughnut',wk,wv,'WHO-UMC');
+  const nk = Object.keys(d.naranjo_distribution), nv = Object.values(d.naranjo_distribution);
+  if(nk.length) makeChart('naranjoChart','doughnut',nk,nv,'Naranjo');
+  const gd = d.gender_distribution;
+  makeChart('genderChart','pie',['Male','Female','Other'],[gd.male,gd.female,gd.other],'Gender');
+  const ok = Object.keys(d.outcome_distribution), ov = Object.values(d.outcome_distribution);
+  if(ok.length) makeChart('outcomeChart','bar',ok,ov,'Outcomes');
+  const tk = Object.keys(d.reports_by_month), tv = Object.values(d.reports_by_month);
+  if(tk.length) makeChart('timeChart','line',tk,tv,'Reports');
+  const dk = Object.keys(d.top_drugs), dv = Object.values(d.top_drugs);
+  if(dk.length) makeChart('drugsChart','bar',dk,dv,'Reports per Drug');
+}).catch(e => { document.getElementById('statsCards').innerHTML = '<p style="color:var(--text-muted);">No data available yet. Submit some ADR reports first!</p>'; });
+</script>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>ADR Reports</h1><p>All submitted adverse drug reaction reports</p></div>
+  <div style="display:flex;gap:8px;">
+    <a href="/capture" class="btn btn-primary">📷 Scan</a>
+    <a href="/form" class="btn btn-outline">📝 New</a>
+  </div>
+</div>
+<div class="card">
+  {% if reports.items %}
+  <div class="table-container">
+    <table>
+      <thead><tr><th>ID</th><th>Patient</th><th>Age</th><th>Gender</th><th>Reaction</th><th>Serious</th><th>WHO-UMC</th><th>Naranjo</th><th>Date</th></tr></thead>
+      <tbody>
+      {% for r in reports.items %}
+      <tr style="cursor:pointer" onclick="location.href='/report/{{r.id}}'">
+        <td>#{{r.id}}</td><td>{{r.patient_initials or '—'}}</td><td>{{r.patient_age or '—'}}</td><td>{{r.gender or '—'}}</td>
+        <td>{{(r.reaction_description or '—')[:50]}}</td>
+        <td><span class="badge {{('badge-serious' if r.is_serious else 'badge-non-serious')}}">{{'Yes' if r.is_serious else 'No'}}</span></td>
+        <td><span class="badge badge-{{(r.who_umc_category or '')|lower|replace('/','')}}">{{r.who_umc_category or '—'}}</span></td>
+        <td>{{r.naranjo_score if r.naranjo_score is not none else '—'}} <small>{{r.naranjo_category or ''}}</small></td>
+        <td>{{r.created_at.strftime('%d/%m/%Y') if r.created_at else '—'}}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div style="display:flex;justify-content:center;gap:8px;margin-top:16px;">
+    {% if reports.has_prev %}<a href="?page={{reports.prev_num}}" class="btn btn-sm btn-outline">← Previous</a>{% endif %}
+    <span style="padding:6px 14px;font-size:13px;color:var(--text-muted);">Page {{reports.page}} of {{reports.pages}}</span>
+    {% if reports.has_next %}<a href="?page={{reports.next_num}}" class="btn btn-sm btn-outline">Next →</a>{% endif %}
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:60px;color:var(--text-muted);"><div style="font-size:48px;margin-bottom:12px;">📋</div><p>No reports found.</p><a href="/capture" class="btn btn-primary" style="margin-top:16px;">Scan a Form</a></div>
+  {% endif %}
+</div>
+{% endblock %}

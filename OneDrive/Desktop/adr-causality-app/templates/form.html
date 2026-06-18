@@ -1,0 +1,563 @@
+{% extends "base.html" %}
+{% block title %}New ADR Report{% endblock %}
+
+{% block head %}
+<style>
+  .ocr-banner {
+    display: none;
+    padding: 14px 18px;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: var(--radius-sm);
+    color: #fbbf24;
+    font-size: 14px;
+    margin-bottom: 20px;
+    align-items: center;
+    gap: 10px;
+  }
+  .ocr-banner.active { display: flex; }
+
+  .mobile-form-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+
+  .mobile-form-card .section-header {
+    margin-top: 0;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-field label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .form-field input,
+  .form-field select,
+  .form-field textarea {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    transition: var(--transition);
+  }
+
+  .form-field input:focus,
+  .form-field select:focus,
+  .form-field textarea:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+  }
+
+  .form-field textarea { resize: vertical; min-height: 80px; }
+  .form-field select { cursor: pointer; }
+
+  .form-field.full { grid-column: 1 / -1; }
+
+  .checkbox-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    font-size: 14px;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+
+  .checkbox-field input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent-indigo);
+    cursor: pointer;
+  }
+
+  .med-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .med-table-wrapper table {
+    min-width: 800px;
+  }
+
+  .submit-section {
+    text-align: center;
+    padding: 32px 0;
+  }
+
+  .submit-section .btn {
+    min-width: 240px;
+    min-height: 52px;
+    font-size: 16px;
+  }
+
+  @media (max-width: 768px) {
+    .form-row {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .mobile-form-card { padding: 16px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div><h1>New ADR Report</h1><p>IPC Suspected Adverse Drug Reaction Reporting Form</p></div>
+  <a href="/capture" class="btn btn-outline">📷 Scan Instead</a>
+</div>
+
+<!-- OCR Banner -->
+<div class="ocr-banner" id="ocrBanner">
+  <span>⚠️</span>
+  <span>Form pre-filled from scanned image — please review and correct any errors before submitting.</span>
+</div>
+
+<form id="adrForm">
+
+<!-- Section A: Patient Information -->
+<div class="mobile-form-card">
+  <div class="section-header">A. Patient Information</div>
+  <div class="form-row">
+    <div class="form-field">
+      <label>Patient Initials *</label>
+      <input type="text" name="patient_initials" id="f_patient_initials" placeholder="e.g. R.K.">
+    </div>
+    <div class="form-field">
+      <label>Age / Date of Birth</label>
+      <input type="text" name="patient_age" id="f_patient_age" placeholder="e.g. 45 or 15/03/1980">
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-field">
+      <label>Gender</label>
+      <select name="gender" id="f_gender">
+        <option value="">Select</option>
+        <option value="M">Male</option>
+        <option value="F">Female</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label>Weight (Kg)</label>
+      <input type="number" name="weight_kg" id="f_weight_kg" placeholder="e.g. 65" step="0.1">
+    </div>
+  </div>
+</div>
+
+<!-- Section B: Suspected Adverse Reaction -->
+<div class="mobile-form-card">
+  <div class="section-header">B. Suspected Adverse Reaction</div>
+  <div class="form-row">
+    <div class="form-field">
+      <label>Reaction Start Date</label>
+      <input type="text" name="reaction_start_date" id="f_reaction_start_date" placeholder="dd/mm/yyyy">
+    </div>
+    <div class="form-field">
+      <label>Reaction Stop Date</label>
+      <input type="text" name="reaction_stop_date" id="f_reaction_stop_date" placeholder="dd/mm/yyyy">
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-field full">
+      <label>Describe Reaction / Event *</label>
+      <textarea name="reaction_description" id="f_reaction_description" placeholder="Describe the adverse reaction in detail..."></textarea>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-field full">
+      <label>Relevant Investigations (with dates)</label>
+      <textarea name="relevant_investigations" id="f_relevant_investigations" placeholder="Lab tests, imaging, etc." style="min-height:60px;"></textarea>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-field full">
+      <label>Medical / Medication History</label>
+      <textarea name="medical_history" id="f_medical_history" placeholder="Allergies, pregnancy, hepatic/renal dysfunction, etc." style="min-height:60px;"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- Seriousness & Outcome -->
+<div class="mobile-form-card">
+  <div class="section-header">Seriousness & Outcome</div>
+  <label class="checkbox-field">
+    <input type="checkbox" name="is_serious" id="f_is_serious"> Serious Reaction
+  </label>
+  <div style="padding-left:26px; margin-bottom:12px;">
+    <label class="checkbox-field"><input type="checkbox" name="seriousness_death" id="f_seriousness_death"> Death</label>
+    <label class="checkbox-field"><input type="checkbox" name="seriousness_life_threatening" id="f_seriousness_life_threatening"> Life Threatening</label>
+    <label class="checkbox-field"><input type="checkbox" name="seriousness_hospitalization" id="f_seriousness_hospitalization"> Hospitalization</label>
+    <label class="checkbox-field"><input type="checkbox" name="seriousness_disability" id="f_seriousness_disability"> Disability</label>
+    <label class="checkbox-field"><input type="checkbox" name="seriousness_congenital_anomaly" id="f_seriousness_congenital_anomaly"> Congenital Anomaly</label>
+    <label class="checkbox-field"><input type="checkbox" name="seriousness_other" id="f_seriousness_other"> Other Medically Important</label>
+  </div>
+  <div class="form-row">
+    <div class="form-field">
+      <label>Outcome</label>
+      <select name="outcome" id="f_outcome">
+        <option value="">Select</option>
+        <option value="recovered">Recovered</option>
+        <option value="recovering">Recovering</option>
+        <option value="not_recovered">Not Recovered</option>
+        <option value="fatal">Fatal</option>
+        <option value="recovered_with_sequelae">Recovered with Sequelae</option>
+        <option value="unknown">Unknown</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- Section C: Suspected Medications -->
+<div class="mobile-form-card">
+  <div class="section-header">C. Suspected Medication(s)</div>
+  <div class="med-table-wrapper">
+    <table id="medTable">
+      <thead>
+        <tr>
+          <th>#</th><th>Drug Name *</th><th>Manufacturer</th><th>Batch No.</th>
+          <th>Dose</th><th>Route</th><th>Frequency</th>
+          <th>Therapy Start</th><th>Therapy Stop</th><th>Indication</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td><input type="text" name="med_drug_1" id="f_drug_name" placeholder="Drug name"></td>
+          <td><input type="text" name="med_mfr_1" placeholder="Mfr"></td>
+          <td><input type="text" name="med_batch_1" placeholder="Batch"></td>
+          <td><input type="text" name="med_dose_1" id="f_dose" placeholder="Dose"></td>
+          <td><input type="text" name="med_route_1" id="f_route" placeholder="Route"></td>
+          <td><input type="text" name="med_freq_1" placeholder="Freq"></td>
+          <td><input type="text" name="med_start_1" id="f_therapy_start" placeholder="dd/mm/yyyy"></td>
+          <td><input type="text" name="med_stop_1" id="f_therapy_stop" placeholder="dd/mm/yyyy"></td>
+          <td><input type="text" name="med_ind_1" placeholder="Indication"></td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td><input type="text" name="med_drug_2"></td><td><input type="text" name="med_mfr_2"></td>
+          <td><input type="text" name="med_batch_2"></td><td><input type="text" name="med_dose_2"></td>
+          <td><input type="text" name="med_route_2"></td><td><input type="text" name="med_freq_2"></td>
+          <td><input type="text" name="med_start_2"></td><td><input type="text" name="med_stop_2"></td>
+          <td><input type="text" name="med_ind_2"></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="margin-top:16px;">
+    <div class="form-row">
+      <div class="form-field">
+        <label>Action Taken</label>
+        <select name="action_taken" id="f_action_taken">
+          <option value="">Select</option>
+          <option value="drug_withdrawn">Drug Withdrawn</option>
+          <option value="dose_reduced">Dose Reduced</option>
+          <option value="dose_increased">Dose Increased</option>
+          <option value="not_changed">Dose Not Changed</option>
+          <option value="not_applicable">Not Applicable</option>
+          <option value="unknown">Unknown</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Rechallenge Result</label>
+        <select name="reintroduction_result" id="f_reintroduction_result">
+          <option value="">Select</option>
+          <option value="yes">Yes — Reaction Reappeared</option>
+          <option value="no">No — No Recurrence</option>
+          <option value="effect_unknown">Effect Unknown</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AMC/NCC Fields -->
+<div class="mobile-form-card">
+  <div class="section-header">AMC / NCC Use</div>
+  <div class="form-row">
+    <div class="form-field">
+      <label>Reg No. / IPD / OPD / CR No.</label>
+      <input type="text" name="reg_no" id="f_reg_no">
+    </div>
+    <div class="form-field">
+      <label>AMC Report No.</label>
+      <input type="text" name="amc_report_no" id="f_amc_report_no">
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-field">
+      <label>Worldwide Unique No.</label>
+      <input type="text" name="worldwide_unique_no" id="f_worldwide_unique_no">
+    </div>
+  </div>
+</div>
+
+<!-- Additional Info -->
+<div class="mobile-form-card">
+  <div class="section-header">Additional Information</div>
+  <div class="form-row">
+    <div class="form-field full">
+      <label>Additional Info</label>
+      <textarea name="additional_info" id="f_additional_info" placeholder="Any additional information..." style="min-height:60px;"></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- Section D: Reporter Details -->
+<div class="mobile-form-card">
+  <div class="section-header">D. Reporter Details</div>
+  <div class="form-row">
+    <div class="form-field">
+      <label>Reporter Name</label>
+      <input type="text" name="reporter_name" id="f_reporter_name">
+    </div>
+    <div class="form-field">
+      <label>Occupation / Designation</label>
+      <input type="text" name="reporter_occupation" id="f_reporter_designation">
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-field full">
+      <label>Address</label>
+      <input type="text" name="reporter_address" id="f_reporter_address">
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-field">
+      <label>PIN Code</label>
+      <input type="text" name="reporter_pin" id="f_reporter_pin">
+    </div>
+    <div class="form-field">
+      <label>Email</label>
+      <input type="email" name="reporter_email" id="f_reporter_email">
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-field">
+      <label>Contact No.</label>
+      <input type="tel" name="reporter_contact" id="f_reporter_contact">
+    </div>
+    <div class="form-field">
+      <label>Date of Report</label>
+      <input type="text" name="report_date" id="f_report_date" placeholder="dd/mm/yyyy">
+    </div>
+  </div>
+</div>
+
+<!-- Submit -->
+<div class="submit-section">
+  <button type="button" class="btn btn-primary btn-lg" id="submitBtn" onclick="submitReport()">
+    🔬 Submit & Run Causality Assessment
+  </button>
+</div>
+
+</form>
+
+<script>
+// ===== OCR Pre-fill =====
+document.addEventListener('DOMContentLoaded', function() {
+  const ocrData = sessionStorage.getItem('ocr_prefill');
+  if (!ocrData) return;
+
+  try {
+    const d = JSON.parse(ocrData);
+    sessionStorage.removeItem('ocr_prefill');
+
+    // Show banner
+    document.getElementById('ocrBanner').classList.add('active');
+
+    // Map OCR fields to form inputs
+    const map = {
+      'f_patient_initials': d.patient_initials,
+      'f_patient_age': d.patient_age,
+      'f_weight_kg': d.weight_kg,
+      'f_reaction_description': d.reaction_description,
+      'f_reaction_start_date': d.reaction_start_date,
+      'f_reaction_stop_date': d.reaction_stop_date,
+      'f_drug_name': d.drug_name,
+      'f_dose': d.dose,
+      'f_route': d.route,
+      'f_therapy_start': d.therapy_start_date,
+      'f_therapy_stop': d.therapy_stop_date,
+      'f_relevant_investigations': d.relevant_investigations,
+      'f_medical_history': d.medical_history,
+      'f_reporter_name': d.reporter_name,
+      'f_reporter_designation': d.reporter_designation,
+      'f_additional_info': d.additional_info,
+    };
+
+    for (const [id, val] of Object.entries(map)) {
+      if (val != null) {
+        const el = document.getElementById(id);
+        if (el) el.value = val;
+      }
+    }
+
+    // Gender mapping
+    if (d.gender) {
+      const g = d.gender.toLowerCase();
+      const genderSelect = document.getElementById('f_gender');
+      if (g === 'male' || g === 'm') genderSelect.value = 'M';
+      else if (g === 'female' || g === 'f') genderSelect.value = 'F';
+      else genderSelect.value = 'Other';
+    }
+
+    // Outcome
+    if (d.outcome) {
+      const o = d.outcome.toLowerCase().replace(/\s+/g, '_');
+      const outcomeSelect = document.getElementById('f_outcome');
+      for (const opt of outcomeSelect.options) {
+        if (opt.value === o) { outcomeSelect.value = o; break; }
+      }
+    }
+
+    // Action taken
+    if (d.action_taken) {
+      const a = d.action_taken.toLowerCase().replace(/\s+/g, '_');
+      const actionSelect = document.getElementById('f_action_taken');
+      for (const opt of actionSelect.options) {
+        if (opt.value === a) { actionSelect.value = a; break; }
+      }
+    }
+
+    // Reintroduction
+    if (d.reintroduction_result) {
+      document.getElementById('f_reintroduction_result').value = d.reintroduction_result;
+    }
+
+    // Serious
+    if (d.is_serious) {
+      document.getElementById('f_is_serious').checked = true;
+    }
+
+    // Scroll to top
+    window.scrollTo(0, 0);
+    if (typeof showToast !== 'undefined') {
+      showToast('Form pre-filled from scanned image. Please review before submitting.', 'info');
+    }
+  } catch (e) {
+    console.error('OCR pre-fill error:', e);
+  }
+});
+
+// ===== Form Submission =====
+async function submitReport() {
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Processing...';
+
+  // Collect form data
+  const val = id => {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() || null : null;
+  };
+  const checked = id => {
+    const el = document.getElementById(id);
+    return el ? el.checked : false;
+  };
+
+  // Build medications array
+  const medications = [];
+  for (let i = 1; i <= 2; i++) {
+    const drugName = document.querySelector(`[name="med_drug_${i}"]`)?.value.trim();
+    if (drugName) {
+      medications.push({
+        serial_no: i,
+        drug_name: drugName,
+        manufacturer: document.querySelector(`[name="med_mfr_${i}"]`)?.value.trim() || null,
+        batch_no: document.querySelector(`[name="med_batch_${i}"]`)?.value.trim() || null,
+        dose: document.querySelector(`[name="med_dose_${i}"]`)?.value.trim() || null,
+        route: document.querySelector(`[name="med_route_${i}"]`)?.value.trim() || null,
+        frequency: document.querySelector(`[name="med_freq_${i}"]`)?.value.trim() || null,
+        therapy_start_date: document.querySelector(`[name="med_start_${i}"]`)?.value.trim() || null,
+        therapy_stop_date: document.querySelector(`[name="med_stop_${i}"]`)?.value.trim() || null,
+        indication: document.querySelector(`[name="med_ind_${i}"]`)?.value.trim() || null,
+        action_taken: i === 1 ? val('f_action_taken') : null,
+        reintroduction_result: i === 1 ? val('f_reintroduction_result') : null,
+      });
+    }
+  }
+
+  const payload = {
+    patient_initials: val('f_patient_initials'),
+    patient_age: val('f_patient_age'),
+    gender: val('f_gender'),
+    weight_kg: val('f_weight_kg'),
+    reaction_start_date: val('f_reaction_start_date'),
+    reaction_stop_date: val('f_reaction_stop_date'),
+    reaction_description: val('f_reaction_description'),
+    relevant_investigations: val('f_relevant_investigations'),
+    medical_history: val('f_medical_history'),
+    is_serious: checked('f_is_serious'),
+    seriousness_death: checked('f_seriousness_death'),
+    seriousness_life_threatening: checked('f_seriousness_life_threatening'),
+    seriousness_hospitalization: checked('f_seriousness_hospitalization'),
+    seriousness_disability: checked('f_seriousness_disability'),
+    seriousness_congenital_anomaly: checked('f_seriousness_congenital_anomaly'),
+    seriousness_other: checked('f_seriousness_other'),
+    outcome: val('f_outcome'),
+    additional_info: val('f_additional_info'),
+    reporter_name: val('f_reporter_name'),
+    reporter_occupation: val('f_reporter_designation'),
+    reporter_address: val('f_reporter_address'),
+    reporter_pin: val('f_reporter_pin'),
+    reporter_email: val('f_reporter_email'),
+    reporter_contact: val('f_reporter_contact'),
+    report_date: val('f_report_date'),
+    reg_no: val('f_reg_no'),
+    amc_report_no: val('f_amc_report_no'),
+    worldwide_unique_no: val('f_worldwide_unique_no'),
+    medications: medications,
+    concomitant_medications: [],
+  };
+
+  try {
+    const res = await fetch('/api/submit-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      if (typeof showToast !== 'undefined') {
+        showToast('Report submitted! WHO-UMC: ' + data.who_umc_category + ', Naranjo: ' + data.naranjo_score + ' (' + data.naranjo_category + ')', 'success');
+      }
+      setTimeout(() => { window.location.href = '/report/' + data.report_id; }, 1200);
+    } else {
+      throw new Error(data.error || 'Submission failed');
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '🔬 Submit & Run Causality Assessment';
+    if (typeof showToast !== 'undefined') {
+      showToast('Error: ' + err.message, 'error');
+    } else {
+      alert('Error: ' + err.message);
+    }
+  }
+}
+</script>
+{% endblock %}

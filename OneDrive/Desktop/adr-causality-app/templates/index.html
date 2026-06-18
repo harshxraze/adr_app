@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Dashboard</h1><p>ADR Causality Assessment Overview</p></div>
+  <a href="/capture" class="btn btn-primary">📷 Scan Form</a>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card indigo">
+    <div class="stat-icon">📄</div>
+    <div class="stat-info"><h4>{{ total_reports }}</h4><p>Total Reports</p></div>
+  </div>
+  <div class="stat-card rose">
+    <div class="stat-icon">⚠️</div>
+    <div class="stat-info"><h4>{{ serious_reports }}</h4><p>Serious ADRs</p></div>
+  </div>
+  <div class="stat-card emerald">
+    <div class="stat-icon">📷</div>
+    <div class="stat-info"><h4>OCR</h4><p>Scan & Extract</p></div>
+  </div>
+  <div class="stat-card amber">
+    <div class="stat-icon">🔬</div>
+    <div class="stat-info"><h4>2</h4><p>Assessment Methods</p></div>
+  </div>
+</div>
+
+<div class="dashboard-grid">
+  <div class="card">
+    <div class="card-header"><h3>Recent Reports</h3><a href="/reports" class="btn btn-sm btn-outline">View All</a></div>
+    {% if recent_reports %}
+    <div class="table-container">
+      <table>
+        <thead><tr><th>ID</th><th>Patient</th><th>Reaction</th><th>WHO-UMC</th><th>Date</th></tr></thead>
+        <tbody>
+        {% for r in recent_reports %}
+        <tr style="cursor:pointer" onclick="location.href='/report/{{r.id}}'">
+          <td>#{{r.id}}</td>
+          <td>{{r.patient_initials or '—'}}</td>
+          <td>{{(r.reaction_description or '—')[:40]}}</td>
+          <td><span class="badge badge-{{(r.who_umc_category or 'possible')|lower|replace('/','')}}">{{r.who_umc_category or '—'}}</span></td>
+          <td>{{r.created_at.strftime('%d/%m/%Y') if r.created_at else '—'}}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center; padding:40px; color:var(--text-muted);">
+      <div style="font-size:48px; margin-bottom:12px;">📋</div>
+      <p>No reports yet. Submit your first ADR report!</p>
+      <a href="/capture" class="btn btn-primary" style="margin-top:16px;">Scan a Form</a>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h3>Quick Actions</h3></div>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <a href="/capture" class="btn btn-primary btn-lg" style="justify-content:center;">📷 Scan ADR Form</a>
+      <a href="/form" class="btn btn-outline btn-lg" style="justify-content:center;">📝 Manual ADR Report</a>
+      <a href="/naranjo" class="btn btn-outline btn-lg" style="justify-content:center;">🧮 Naranjo Scale Calculator</a>
+      <a href="/analytics" class="btn btn-outline btn-lg" style="justify-content:center;">📈 View Analytics</a>
+    </div>
+    <div style="margin-top:24px; padding:16px; background:var(--bg-secondary); border-radius:var(--radius-md); border:1px solid var(--border-color);">
+      <h4 style="font-size:13px; color:var(--text-secondary); margin-bottom:8px;">System Info</h4>
+      <p style="font-size:12px; color:var(--text-muted);">Assessment: Naranjo Scale, WHO-UMC</p>
+      <p style="font-size:12px; color:var(--text-muted);">OCR: Gemini AI Multimodal</p>
+      <p style="font-size:12px; color:var(--text-muted);">Mobile PWA with camera scanning</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
