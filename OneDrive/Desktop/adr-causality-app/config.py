@@ -10,6 +10,8 @@ class Config:
     # Heroku/Supabase sometimes uses postgres:// which SQLAlchemy doesn't accept
     if db_url.startswith('postgres://'):
         db_url = db_url.replace('postgres://', 'postgresql://', 1)
+    # Strip ?pgbouncer=true — psycopg2 doesn't recognize it as a valid option
+    db_url = db_url.replace('?pgbouncer=true', '').replace('&pgbouncer=true', '')
     SQLALCHEMY_DATABASE_URI = db_url
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
