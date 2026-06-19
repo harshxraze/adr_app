@@ -1,52 +1,386 @@
 {% extends "base.html" %}
-{% block title %}Analytics{% endblock %}
+{% block title %}Analytics Dashboard{% endblock %}
 {% block content %}
-<div class="page-header"><div><h1>📈 Analytics Dashboard</h1><p>Insights from ADR reports and causality assessments</p></div></div>
-<div class="stats-grid" id="statsCards"><div class="spinner"></div></div>
-<div class="analytics-charts">
-  <div class="card"><div class="card-header"><h3>WHO-UMC Distribution</h3></div><canvas id="whoChart" height="250"></canvas></div>
-  <div class="card"><div class="card-header"><h3>Naranjo Distribution</h3></div><canvas id="naranjoChart" height="250"></canvas></div>
-  <div class="card"><div class="card-header"><h3>Gender Distribution</h3></div><canvas id="genderChart" height="250"></canvas></div>
-  <div class="card"><div class="card-header"><h3>Outcome Distribution</h3></div><canvas id="outcomeChart" height="250"></canvas></div>
-  <div class="card" style="grid-column:1/-1;"><div class="card-header"><h3>Reports Over Time</h3></div><canvas id="timeChart" height="150"></canvas></div>
-  <div class="card" style="grid-column:1/-1;"><div class="card-header"><h3>Top Suspected Drugs</h3></div><canvas id="drugsChart" height="200"></canvas></div>
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+  <div>
+    <h1 class="text-2xl sm:text-3xl font-extrabold gradient-text">📈 Analytics Dashboard</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Insights from ADR reports and causality assessments</p>
+  </div>
+  <a href="/api/analytics/export-excel" class="w-full sm:w-auto gradient-bg text-white px-5 py-2.5 rounded-lg font-semibold text-sm shadow-lg shadow-brand-500/25 hover:-translate-y-0.5 transition-all text-center flex items-center justify-center gap-2">
+    📥 Export to Excel
+  </a>
 </div>
 
-<style>
-  .analytics-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px; }
-  @media (max-width: 768px) { .analytics-charts { grid-template-columns: 1fr; } .analytics-charts .card[style*="grid-column"] { grid-column: auto; } }
-</style>
+<!-- Stats Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8" id="statsCards">
+  <div class="col-span-full text-center py-8"><div class="spinner border-4 border-t-brand-500 w-8 h-8 rounded-full mx-auto"></div></div>
+</div>
 
+<!-- Main Layout Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  <!-- Dose & Age Breakdown Card (New Requirement) -->
+  <div class="lg:col-span-2 bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 hover:border-brand-300 dark:hover:border-brand-500/30 transition-colors">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5 pb-4 border-b border-gray-200 dark:border-gray-700/50">
+      <div>
+        <h3 class="font-bold text-gray-900 dark:text-white text-base">💊 Suspected Drug Dose & Age Analysis</h3>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Distribution breakdown for clinical reporting</p>
+      </div>
+      <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+        <select id="doseAgeDrugSelect" class="bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-700 dark:text-gray-300 focus:outline-none focus:border-brand-500 cursor-pointer min-h-[38px] min-w-[150px]">
+          <option value="">Select Drug</option>
+        </select>
+        <select id="doseAgeDoseSelect" disabled class="bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-700 dark:text-gray-300 focus:outline-none focus:border-brand-500 cursor-pointer min-h-[38px] min-w-[120px]">
+          <option value="">Select Dose</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Interactive Breakdown Content -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+      <!-- Big Stat Display -->
+      <div class="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700/30 rounded-xl p-6 text-center">
+        <p class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Total Patients Given</p>
+        <h4 id="doseAgeCount" class="text-5xl font-black text-brand-600 dark:text-brand-400">0</h4>
+        <p id="doseAgeSelectionLabel" class="text-xs text-gray-400 dark:text-gray-500 mt-2 font-medium">Please select a drug and dose</p>
+      </div>
+      <!-- Chart area -->
+      <div class="md:col-span-2 relative h-[220px] w-full flex items-center justify-center">
+        <div id="noDoseAgeData" class="text-center text-gray-400 dark:text-gray-600 text-sm font-medium">
+          Select drug and dose to display clinical age breakdown
+        </div>
+        <canvas id="doseAgeChart" class="hidden h-full w-full"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 hover:border-brand-300 dark:hover:border-brand-500/30 transition-colors">
+    <h3 class="font-bold text-gray-900 dark:text-white text-base mb-4 pb-2 border-b border-gray-100 dark:border-gray-700/30">WHO-UMC Distribution</h3>
+    <div class="relative h-[250px]"><canvas id="whoChart"></canvas></div>
+  </div>
+
+  <div class="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 hover:border-brand-300 dark:hover:border-brand-500/30 transition-colors">
+    <h3 class="font-bold text-gray-900 dark:text-white text-base mb-4 pb-2 border-b border-gray-100 dark:border-gray-700/30">Naranjo Distribution</h3>
+    <div class="relative h-[250px]"><canvas id="naranjoChart"></canvas></div>
+  </div>
+
+  <div class="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 hover:border-brand-300 dark:hover:border-brand-500/30 transition-colors">
+    <h3 class="font-bold text-gray-900 dark:text-white text-base mb-4 pb-2 border-b border-gray-100 dark:border-gray-700/30">Gender Distribution</h3>
+    <div class="relative h-[250px]"><canvas id="genderChart"></canvas></div>
+  </div>
+
+  <div class="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 hover:border-brand-300 dark:hover:border-brand-500/30 transition-colors">
+    <h3 class="font-bold text-gray-900 dark:text-white text-base mb-4 pb-2 border-b border-gray-100 dark:border-gray-700/30">Outcome Distribution</h3>
+    <div class="relative h-[250px]"><canvas id="outcomeChart"></canvas></div>
+  </div>
+
+  <div class="lg:col-span-2 bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 hover:border-brand-300 dark:hover:border-brand-500/30 transition-colors">
+    <h3 class="font-bold text-gray-900 dark:text-white text-base mb-4 pb-2 border-b border-gray-100 dark:border-gray-700/30">Reports Over Time</h3>
+    <div class="relative h-[200px]"><canvas id="timeChart"></canvas></div>
+  </div>
+
+  <div class="lg:col-span-2 bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 hover:border-brand-300 dark:hover:border-brand-500/30 transition-colors">
+    <h3 class="font-bold text-gray-900 dark:text-white text-base mb-4 pb-2 border-b border-gray-100 dark:border-gray-700/30">Top Suspected Drugs</h3>
+    <div class="relative h-[200px]"><canvas id="drugsChart"></canvas></div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
 <script>
 const COLORS = ['#6366f1','#10b981','#f59e0b','#f43f5e','#0ea5e9','#a855f7','#ec4899','#14b8a6'];
-const chartOpts = { responsive:true, maintainAspectRatio:true, plugins:{legend:{labels:{color:'#94a3b8',font:{family:'Inter'}}}} };
+
+// Chart options with support for dark/light grids
+const getChartOpts = () => {
+  const isDark = document.documentElement.classList.contains('dark');
+  const textColor = isDark ? '#94a3b8' : '#4b5563';
+  const gridColor = isDark ? 'rgba(55, 65, 81, 0.3)' : 'rgba(229, 231, 235, 0.5)';
+  
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        labels: {
+          color: textColor,
+          font: { family: 'Inter', size: 11, weight: '500' }
+        }
+      }
+    },
+    scales: {
+      x: {
+        grid: { color: gridColor },
+        ticks: { color: textColor, font: { family: 'Inter' } }
+      },
+      y: {
+        grid: { color: gridColor },
+        ticks: { color: textColor, font: { family: 'Inter' } },
+        beginAtZero: true
+      }
+    }
+  };
+};
+
+const getPieOpts = () => {
+  const isDark = document.documentElement.classList.contains('dark');
+  const textColor = isDark ? '#94a3b8' : '#4b5563';
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'right',
+        labels: {
+          color: textColor,
+          font: { family: 'Inter', size: 11, weight: '500' }
+        }
+      }
+    }
+  };
+};
+
+let activeCharts = {};
 
 function makeChart(id, type, labels, data, label) {
-  const colors = labels.map((_,i) => COLORS[i % COLORS.length]);
-  new Chart(document.getElementById(id), {
-    type, data: { labels, datasets: [{ label, data, backgroundColor: colors, borderColor: type==='line'?'#6366f1':colors, borderWidth: type==='line'?2:1, fill: type==='line', tension:0.4 }] },
-    options: { ...chartOpts, scales: type==='pie'||type==='doughnut' ? {} : { x:{ticks:{color:'#64748b'}}, y:{ticks:{color:'#64748b'},beginAtZero:true} } }
+  if (activeCharts[id]) {
+    activeCharts[id].destroy();
+  }
+  const colors = labels.map((_, i) => COLORS[i % COLORS.length]);
+  const isPie = type === 'pie' || type === 'doughnut';
+  const options = isPie ? getPieOpts() : getChartOpts();
+  
+  // Line chart enhancements
+  let datasetOpts = {};
+  if (type === 'line') {
+    datasetOpts = {
+      borderColor: '#6366f1',
+      backgroundColor: 'rgba(99, 102, 241, 0.1)',
+      borderWidth: 3,
+      fill: true,
+      tension: 0.4,
+      pointBackgroundColor: '#6366f1'
+    };
+  } else {
+    datasetOpts = {
+      backgroundColor: colors,
+      borderColor: colors,
+      borderWidth: 1
+    };
+  }
+
+  const ctx = document.getElementById(id).getContext('2d');
+  activeCharts[id] = new Chart(ctx, {
+    type,
+    data: {
+      labels,
+      datasets: [{
+        label,
+        data,
+        ...datasetOpts
+      }]
+    },
+    options
   });
 }
 
-fetch('/api/analytics/stats').then(r=>r.json()).then(d => {
-  document.getElementById('statsCards').innerHTML = `
-    <div class="stat-card indigo"><div class="stat-icon">📄</div><div class="stat-info"><h4>${d.total_reports}</h4><p>Total Reports</p></div></div>
-    <div class="stat-card rose"><div class="stat-icon">⚠️</div><div class="stat-info"><h4>${d.serious_reports}</h4><p>Serious ADRs</p></div></div>
-    <div class="stat-card emerald"><div class="stat-icon">👤</div><div class="stat-info"><h4>${d.gender_distribution.male+d.gender_distribution.female+d.gender_distribution.other}</h4><p>Total Patients</p></div></div>
-    <div class="stat-card amber"><div class="stat-icon">💊</div><div class="stat-info"><h4>${Object.keys(d.top_drugs).length}</h4><p>Unique Drugs</p></div></div>`;
-  const wk = Object.keys(d.who_umc_distribution), wv = Object.values(d.who_umc_distribution);
-  if(wk.length) makeChart('whoChart','doughnut',wk,wv,'WHO-UMC');
-  const nk = Object.keys(d.naranjo_distribution), nv = Object.values(d.naranjo_distribution);
-  if(nk.length) makeChart('naranjoChart','doughnut',nk,nv,'Naranjo');
-  const gd = d.gender_distribution;
-  makeChart('genderChart','pie',['Male','Female','Other'],[gd.male,gd.female,gd.other],'Gender');
-  const ok = Object.keys(d.outcome_distribution), ov = Object.values(d.outcome_distribution);
-  if(ok.length) makeChart('outcomeChart','bar',ok,ov,'Outcomes');
-  const tk = Object.keys(d.reports_by_month), tv = Object.values(d.reports_by_month);
-  if(tk.length) makeChart('timeChart','line',tk,tv,'Reports');
-  const dk = Object.keys(d.top_drugs), dv = Object.values(d.top_drugs);
-  if(dk.length) makeChart('drugsChart','bar',dk,dv,'Reports per Drug');
-}).catch(e => { document.getElementById('statsCards').innerHTML = '<p style="color:var(--text-muted);">No data available yet. Submit some ADR reports first!</p>'; });
+// Global data structure for dose-age analysis
+let doseAgeData = {};
+let doseAgeChartInstance = null;
+
+// Load statistics and generate main charts
+function loadDashboardData() {
+  fetch('/api/analytics/stats')
+    .then(r => r.json())
+    .then(d => {
+      const isDark = document.documentElement.classList.contains('dark');
+      const cardBg = isDark ? 'bg-gray-800/50 border-gray-700/50' : 'bg-white border-gray-200';
+      const headingColor = isDark ? 'text-white' : 'text-gray-900';
+
+      document.getElementById('statsCards').innerHTML = `
+        <div class="relative ${cardBg} border rounded-xl p-5 flex items-center gap-4 hover:-translate-y-0.5 transition-all overflow-hidden">
+          <div class="absolute top-0 left-0 right-0 h-[3px] gradient-bg"></div>
+          <div class="w-12 h-12 rounded-xl bg-brand-50 dark:bg-brand-500/10 flex items-center justify-center text-xl flex-shrink-0">📄</div>
+          <div><h4 class="text-2xl font-black ${headingColor}">${d.total_reports}</h4><p class="text-xs text-gray-500 dark:text-gray-400 font-medium">Total Reports</p></div>
+        </div>
+        <div class="relative ${cardBg} border rounded-xl p-5 flex items-center gap-4 hover:-translate-y-0.5 transition-all overflow-hidden">
+          <div class="absolute top-0 left-0 right-0 h-[3px] gradient-danger"></div>
+          <div class="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center text-xl flex-shrink-0">⚠️</div>
+          <div><h4 class="text-2xl font-black ${headingColor}">${d.serious_reports}</h4><p class="text-xs text-gray-500 dark:text-gray-400 font-medium">Serious ADRs</p></div>
+        </div>
+        <div class="relative ${cardBg} border rounded-xl p-5 flex items-center gap-4 hover:-translate-y-0.5 transition-all overflow-hidden">
+          <div class="absolute top-0 left-0 right-0 h-[3px] gradient-success"></div>
+          <div class="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-xl flex-shrink-0">👤</div>
+          <div><h4 class="text-2xl font-black ${headingColor}">${d.gender_distribution.male + d.gender_distribution.female + d.gender_distribution.other}</h4><p class="text-xs text-gray-500 dark:text-gray-400 font-medium">Total Patients</p></div>
+        </div>
+        <div class="relative ${cardBg} border rounded-xl p-5 flex items-center gap-4 hover:-translate-y-0.5 transition-all overflow-hidden">
+          <div class="absolute top-0 left-0 right-0 h-[3px] gradient-warning"></div>
+          <div class="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center text-xl flex-shrink-0">💊</div>
+          <div><h4 class="text-2xl font-black ${headingColor}">${Object.keys(d.top_drugs).length}</h4><p class="text-xs text-gray-500 dark:text-gray-400 font-medium">Unique Drugs</p></div>
+        </div>
+      `;
+
+      // Render all charts
+      const wk = Object.keys(d.who_umc_distribution), wv = Object.values(d.who_umc_distribution);
+      if (wk.length) makeChart('whoChart', 'doughnut', wk, wv, 'WHO-UMC Classification');
+      
+      const nk = Object.keys(d.naranjo_distribution), nv = Object.values(d.naranjo_distribution);
+      if (nk.length) makeChart('naranjoChart', 'doughnut', nk, nv, 'Naranjo Probability');
+      
+      const gd = d.gender_distribution;
+      makeChart('genderChart', 'pie', ['Male', 'Female', 'Other'], [gd.male, gd.female, gd.other], 'Gender distribution');
+      
+      const ok = Object.keys(d.outcome_distribution), ov = Object.values(d.outcome_distribution);
+      if (ok.length) makeChart('outcomeChart', 'bar', ok, ov, 'Clinical Outcomes');
+      
+      const tk = Object.keys(d.reports_by_month), tv = Object.values(d.reports_by_month);
+      if (tk.length) makeChart('timeChart', 'line', tk, tv, 'Monthly Reports');
+      
+      const dk = Object.keys(d.top_drugs), dv = Object.values(d.top_drugs);
+      if (dk.length) makeChart('drugsChart', 'bar', dk, dv, 'Reports per Drug');
+    })
+    .catch(e => {
+      document.getElementById('statsCards').innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400 py-8">No statistics data available yet.</p>';
+    });
+}
+
+// Load and handle Dose-Age Distribution interactive feature
+function loadDoseAgeData() {
+  fetch('/api/analytics/dose-age')
+    .then(r => r.json())
+    .then(data => {
+      doseAgeData = data;
+      const drugSelect = document.getElementById('doseAgeDrugSelect');
+      
+      // Clear and populate drugs
+      drugSelect.innerHTML = '<option value="">Select Drug</option>';
+      const sortedDrugs = Object.keys(data).sort();
+      sortedDrugs.forEach(drug => {
+        const opt = document.createElement('option');
+        opt.value = drug;
+        opt.textContent = drug;
+        drugSelect.appendChild(opt);
+      });
+    });
+}
+
+// Update doses dropdown on drug selection
+document.getElementById('doseAgeDrugSelect').addEventListener('change', function() {
+  const drug = this.value;
+  const doseSelect = document.getElementById('doseAgeDoseSelect');
+  
+  doseSelect.innerHTML = '<option value="">Select Dose</option>';
+  doseSelect.disabled = true;
+  
+  resetDoseAgeDisplay();
+
+  if (drug && doseAgeData[drug]) {
+    doseSelect.disabled = false;
+    const sortedDoses = Object.keys(doseAgeData[drug]).sort();
+    sortedDoses.forEach(dose => {
+      const opt = document.createElement('option');
+      opt.value = dose;
+      opt.textContent = dose;
+      doseSelect.appendChild(opt);
+    });
+  }
+});
+
+// Render breakdown on dose selection
+document.getElementById('doseAgeDoseSelect').addEventListener('change', function() {
+  const drug = document.getElementById('doseAgeDrugSelect').value;
+  const dose = this.value;
+
+  if (drug && dose && doseAgeData[drug] && doseAgeData[drug][dose]) {
+    const stats = doseAgeData[drug][dose];
+    
+    // Update count display
+    document.getElementById('doseAgeCount').textContent = stats.count;
+    document.getElementById('doseAgeSelectionLabel').textContent = `${drug} @ ${dose}`;
+    
+    // Render Chart
+    const labels = Object.keys(stats.age_groups);
+    const counts = Object.values(stats.age_groups);
+    
+    document.getElementById('noDoseAgeData').classList.add('hidden');
+    const canvas = document.getElementById('doseAgeChart');
+    canvas.classList.remove('hidden');
+
+    if (doseAgeChartInstance) {
+      doseAgeChartInstance.destroy();
+    }
+    
+    const isDark = document.documentElement.classList.contains('dark');
+    const textColor = isDark ? '#94a3b8' : '#4b5563';
+    const gridColor = isDark ? 'rgba(55, 65, 81, 0.3)' : 'rgba(229, 231, 235, 0.5)';
+    
+    const ctx = canvas.getContext('2d');
+    doseAgeChartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Patients',
+          data: counts,
+          backgroundColor: '#6366f1',
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: textColor, font: { family: 'Inter', size: 10 } }
+          },
+          y: {
+            grid: { color: gridColor },
+            ticks: { color: textColor, stepSize: 1, font: { family: 'Inter', size: 10 } },
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  } else {
+    resetDoseAgeDisplay();
+  }
+});
+
+function resetDoseAgeDisplay() {
+  document.getElementById('doseAgeCount').textContent = '0';
+  document.getElementById('doseAgeSelectionLabel').textContent = 'Please select a drug and dose';
+  document.getElementById('noDoseAgeData').classList.remove('hidden');
+  document.getElementById('doseAgeChart').classList.add('hidden');
+  if (doseAgeChartInstance) {
+    doseAgeChartInstance.destroy();
+    doseAgeChartInstance = null;
+  }
+}
+
+// Redraw charts on theme change to keep color harmony
+document.addEventListener('DOMContentLoaded', () => {
+  loadDashboardData();
+  loadDoseAgeData();
+  
+  // Monitor theme changes to adjust scales dynamically
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.attributeName === 'class') {
+        loadDashboardData();
+        // Redraw active dose age chart if populated
+        const doseSelect = document.getElementById('doseAgeDoseSelect');
+        if (doseSelect.value) {
+          doseSelect.dispatchEvent(new Event('change'));
+        }
+      }
+    });
+  });
+  observer.observe(document.documentElement, { attributes: true });
+});
 </script>
 {% endblock %}

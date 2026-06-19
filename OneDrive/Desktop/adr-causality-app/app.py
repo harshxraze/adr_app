@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 load_dotenv()
 print("DEBUG: Environment variables loaded. GEMINI_API_KEY present:", bool(os.environ.get('GEMINI_API_KEY')))
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, Response, send_file
 from flask_cors import CORS
 
 # Google Cloud credentials from environment variable (for Render deployment)
@@ -433,6 +433,191 @@ def get_analytics_stats():
             'reports_by_month': {str(k): v for k, v in reports_by_month},
             'top_drugs': {str(k): v for k, v in top_drugs},
         })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+import re
+
+def get_age_group(age_str):
+    if not age_str:
+        return 'Unknown'
+    # Try to find a number in the age string
+    match = re.search(r'\d+', str(age_str))
+    if not match:
+        return 'Unknown'
+    try:
+        age_val = int(match.group())
+        if age_val <= 12:
+            return 'Pediatric (0-12)'
+        elif age_val <= 19:
+            return 'Adolescent (13-19)'
+        elif age_val <= 59:
+            return 'Adult (20-59)'
+        else:
+            return 'Geriatric (60+)'
+    except:
+        return 'Unknown'
+
+@app.route('/api/analytics/dose-age')
+def api_dose_age():
+    try:
+        results = db.session.query(
+            SuspectedMedication.drug_name,
+            SuspectedMedication.dose,
+            ADRReport.patient_age
+        ).join(ADRReport, SuspectedMedication.report_id == ADRReport.id).all()
+        
+        data = {}
+        for drug, dose, age_str in results:
+            if not drug:
+                continue
+            drug_clean = drug.strip().upper()
+            dose_clean = (dose or 'Unknown').strip()
+            
+            if drug_clean not in data:
+                data[drug_clean] = {}
+            if dose_clean not in data[drug_clean]:
+                data[drug_clean][dose_clean] = {
+                    'count': 0,
+                    'age_groups': {
+                        'Pediatric (0-12)': 0,
+                        'Adolescent (13-19)': 0,
+                        'Adult (20-59)': 0,
+                        'Geriatric (60+)': 0,
+                        'Unknown': 0
+                    }
+                }
+            
+            group = get_age_group(age_str)
+            data[drug_clean][dose_clean]['count'] += 1
+            data[drug_clean][dose_clean]['age_groups'][group] += 1
+            
+        return jsonify(data)
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/analytics/export-excel')
+def api_export_excel():
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from io import BytesIO
+        
+        wb = Workbook()
+        ws_reports = wb.active
+        ws_reports.title = "ADR Reports"
+        
+        # Headers for reports
+        headers_reports = [
+            "Report ID", "Created At", "Case Type", "Patient Initials", "Age", "Gender", "Weight (kg)",
+            "Reaction Start", "Reaction Stop", "Reaction Description", "Is Serious",
+            "Seriousness Reasons", "Outcome", "Relevant Investigations", "Medical History",
+            "Naranjo Score", "Naranjo Category", "WHO-UMC Category",
+            "Reporter Name", "Reporter Occupation", "Reporter Contact"
+        ]
+        
+        ws_reports.append(headers_reports)
+        
+        # Style headers
+        header_font = Font(name="Arial", size=11, bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="8B1A1A", end_color="8B1A1A", fill_type="solid")
+        header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        thin_border = Border(
+            left=Side(style='thin', color='DDDDDD'),
+            right=Side(style='thin', color='DDDDDD'),
+            top=Side(style='thin', color='DDDDDD'),
+            bottom=Side(style='thin', color='DDDDDD')
+        )
+        
+        for col_idx in range(1, len(headers_reports) + 1):
+            cell = ws_reports.cell(row=1, column=col_idx)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_align
+            cell.border = thin_border
+            
+        reports = ADRReport.query.order_by(ADRReport.id.desc()).all()
+        for r in reports:
+            ser_list = []
+            if r.seriousness_death: ser_list.append("Death")
+            if r.seriousness_life_threatening: ser_list.append("Life Threatening")
+            if r.seriousness_hospitalization: ser_list.append("Hospitalization")
+            if r.seriousness_disability: ser_list.append("Disability")
+            if r.seriousness_congenital_anomaly: ser_list.append("Congenital Anomaly")
+            if r.seriousness_other: ser_list.append("Other Medically Important")
+            ser_str = ", ".join(ser_list) if ser_list else ("Yes" if r.is_serious else "No")
+            
+            created_str = r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else ''
+            
+            row_data = [
+                r.id, created_str, r.case_type, r.patient_initials, r.patient_age, r.gender, r.weight_kg,
+                r.reaction_start_date, r.reaction_stop_date, r.reaction_description,
+                "Yes" if r.is_serious else "No", ser_str, r.outcome, r.relevant_investigations, r.medical_history,
+                r.naranjo_score, r.naranjo_category, r.who_umc_category,
+                r.reporter_name, r.reporter_occupation, r.reporter_contact
+            ]
+            ws_reports.append(row_data)
+            
+        # Sheet 2: Suspected Medications
+        ws_meds = wb.create_sheet(title="Suspected Medications")
+        headers_meds = [
+            "Medication ID", "Report ID", "Patient Initials", "Drug Name", "Manufacturer", "Batch No",
+            "Expiry Date", "Dose", "Route", "Frequency", "Therapy Start", "Therapy Stop", "Indication",
+            "Action Taken", "Reintroduction Result"
+        ]
+        ws_meds.append(headers_meds)
+        
+        for col_idx in range(1, len(headers_meds) + 1):
+            cell = ws_meds.cell(row=1, column=col_idx)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_align
+            cell.border = thin_border
+            
+        meds = SuspectedMedication.query.join(ADRReport).order_by(SuspectedMedication.report_id.desc()).all()
+        for m in meds:
+            row_data = [
+                m.id, m.report_id, m.report.patient_initials if m.report else '', m.drug_name, m.manufacturer, m.batch_no,
+                m.expiry_date, m.dose, m.route, m.frequency, m.therapy_start_date, m.therapy_stop_date, m.indication,
+                m.action_taken, m.reintroduction_result
+            ]
+            ws_meds.append(row_data)
+            
+        # Auto-adjust column widths
+        for ws in [ws_reports, ws_meds]:
+            for col in ws.columns:
+                max_len = 0
+                col_letter = col[0].column_letter
+                for cell in col:
+                    val_str = str(cell.value or '')
+                    if len(val_str) > max_len:
+                        max_len = len(val_str)
+                ws.column_dimensions[col_letter].width = min(max(max_len + 3, 10), 40)
+                
+        # Style all data rows
+        data_font = Font(name="Arial", size=10)
+        data_align = Alignment(vertical="center")
+        for ws in [ws_reports, ws_meds]:
+            for r_idx in range(2, ws.max_row + 1):
+                for c_idx in range(1, ws.max_column + 1):
+                    cell = ws.cell(row=r_idx, column=c_idx)
+                    cell.font = data_font
+                    cell.alignment = data_align
+                    cell.border = thin_border
+                    
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        return send_file(
+            output,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            as_attachment=True,
+            download_name="adr_reports_export.xlsx"
+        )
     except Exception as e:
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500

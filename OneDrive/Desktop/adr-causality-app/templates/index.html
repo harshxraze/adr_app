@@ -1,72 +1,90 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
-<div class="page-header">
-  <div><h1>Dashboard</h1><p>ADR Causality Assessment Overview</p></div>
-  <a href="/capture" class="btn btn-primary">📷 Scan Form</a>
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-8">
+  <div>
+    <h1 class="text-2xl sm:text-3xl font-extrabold gradient-text">Dashboard</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">ADR Causality Assessment Overview</p>
+  </div>
+  <a href="/capture" class="gradient-bg text-white px-5 py-2.5 rounded-lg font-semibold text-sm shadow-lg shadow-brand-500/30 hover:-translate-y-0.5 transition-all min-h-[44px] flex items-center gap-2">📷 Scan Form</a>
 </div>
 
-<div class="stats-grid">
-  <div class="stat-card indigo">
-    <div class="stat-icon">📄</div>
-    <div class="stat-info"><h4>{{ total_reports }}</h4><p>Total Reports</p></div>
+<!-- Stats Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+  <div class="relative bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 flex items-center gap-4 hover:-translate-y-0.5 transition-all overflow-hidden">
+    <div class="absolute top-0 left-0 right-0 h-[3px] gradient-bg"></div>
+    <div class="w-12 h-12 rounded-xl bg-brand-50 dark:bg-brand-500/10 flex items-center justify-center text-xl flex-shrink-0">📄</div>
+    <div><h4 class="text-2xl font-extrabold text-gray-900 dark:text-white">{{ total_reports }}</h4><p class="text-xs text-gray-500 dark:text-gray-400">Total Reports</p></div>
   </div>
-  <div class="stat-card rose">
-    <div class="stat-icon">⚠️</div>
-    <div class="stat-info"><h4>{{ serious_reports }}</h4><p>Serious ADRs</p></div>
+  <div class="relative bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 flex items-center gap-4 hover:-translate-y-0.5 transition-all overflow-hidden">
+    <div class="absolute top-0 left-0 right-0 h-[3px] gradient-danger"></div>
+    <div class="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center text-xl flex-shrink-0">⚠️</div>
+    <div><h4 class="text-2xl font-extrabold text-gray-900 dark:text-white">{{ serious_reports }}</h4><p class="text-xs text-gray-500 dark:text-gray-400">Serious ADRs</p></div>
   </div>
-  <div class="stat-card emerald">
-    <div class="stat-icon">📷</div>
-    <div class="stat-info"><h4>OCR</h4><p>Scan & Extract</p></div>
+  <div class="relative bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 flex items-center gap-4 hover:-translate-y-0.5 transition-all overflow-hidden">
+    <div class="absolute top-0 left-0 right-0 h-[3px] gradient-success"></div>
+    <div class="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-xl flex-shrink-0">📷</div>
+    <div><h4 class="text-2xl font-extrabold text-gray-900 dark:text-white">OCR</h4><p class="text-xs text-gray-500 dark:text-gray-400">Scan & Extract</p></div>
   </div>
-  <div class="stat-card amber">
-    <div class="stat-icon">🔬</div>
-    <div class="stat-info"><h4>2</h4><p>Assessment Methods</p></div>
+  <div class="relative bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 flex items-center gap-4 hover:-translate-y-0.5 transition-all overflow-hidden">
+    <div class="absolute top-0 left-0 right-0 h-[3px] gradient-warning"></div>
+    <div class="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center text-xl flex-shrink-0">🔬</div>
+    <div><h4 class="text-2xl font-extrabold text-gray-900 dark:text-white">2</h4><p class="text-xs text-gray-500 dark:text-gray-400">Assessment Methods</p></div>
   </div>
 </div>
 
-<div class="dashboard-grid">
-  <div class="card">
-    <div class="card-header"><h3>Recent Reports</h3><a href="/reports" class="btn btn-sm btn-outline">View All</a></div>
+<!-- Dashboard Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <!-- Recent Reports -->
+  <div class="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 hover:border-brand-300 dark:hover:border-brand-500/30 transition-colors">
+    <div class="flex justify-between items-center mb-5 pb-4 border-b border-gray-200 dark:border-gray-700/50">
+      <h3 class="font-semibold text-gray-900 dark:text-white">Recent Reports</h3>
+      <a href="/reports" class="text-sm font-semibold text-brand-500 border border-brand-500 px-3 py-1.5 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors">View All</a>
+    </div>
     {% if recent_reports %}
-    <div class="table-container">
-      <table>
-        <thead><tr><th>ID</th><th>Patient</th><th>Reaction</th><th>WHO-UMC</th><th>Date</th></tr></thead>
+    <div class="overflow-x-auto -mx-5 px-5">
+      <table class="w-full text-sm min-w-[500px]">
+        <thead><tr class="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500">
+          <th class="text-left py-2 px-3">ID</th><th class="text-left py-2 px-3">Patient</th><th class="text-left py-2 px-3">Reaction</th><th class="text-left py-2 px-3">WHO-UMC</th><th class="text-left py-2 px-3">Date</th>
+        </tr></thead>
         <tbody>
         {% for r in recent_reports %}
-        <tr style="cursor:pointer" onclick="location.href='/report/{{r.id}}'">
-          <td>#{{r.id}}</td>
-          <td>{{r.patient_initials or '—'}}</td>
-          <td>{{(r.reaction_description or '—')[:40]}}</td>
-          <td><span class="badge badge-{{(r.who_umc_category or 'possible')|lower|replace('/','')}}">{{r.who_umc_category or '—'}}</span></td>
-          <td>{{r.created_at.strftime('%d/%m/%Y') if r.created_at else '—'}}</td>
+        <tr class="border-t border-gray-100 dark:border-gray-700/30 hover:bg-gray-50 dark:hover:bg-gray-700/20 cursor-pointer transition-colors" onclick="location.href='/report/{{r.id}}'">
+          <td class="py-2.5 px-3 font-medium">#{{r.id}}</td>
+          <td class="py-2.5 px-3">{{r.patient_initials or '—'}}</td>
+          <td class="py-2.5 px-3 max-w-[150px] truncate">{{(r.reaction_description or '—')[:40]}}</td>
+          <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400">{{r.who_umc_category or '—'}}</span></td>
+          <td class="py-2.5 px-3 text-gray-500 dark:text-gray-400">{{r.created_at.strftime('%d/%m/%Y') if r.created_at else '—'}}</td>
         </tr>
         {% endfor %}
         </tbody>
       </table>
     </div>
     {% else %}
-    <div style="text-align:center; padding:40px; color:var(--text-muted);">
-      <div style="font-size:48px; margin-bottom:12px;">📋</div>
+    <div class="text-center py-12 text-gray-400 dark:text-gray-600">
+      <div class="text-5xl mb-3">📋</div>
       <p>No reports yet. Submit your first ADR report!</p>
-      <a href="/capture" class="btn btn-primary" style="margin-top:16px;">Scan a Form</a>
+      <a href="/capture" class="gradient-bg text-white px-5 py-2 rounded-lg font-semibold text-sm inline-block mt-4">Scan a Form</a>
     </div>
     {% endif %}
   </div>
 
-  <div class="card">
-    <div class="card-header"><h3>Quick Actions</h3></div>
-    <div style="display:flex; flex-direction:column; gap:12px;">
-      <a href="/capture" class="btn btn-primary btn-lg" style="justify-content:center;">📷 Scan ADR Form</a>
-      <a href="/form" class="btn btn-outline btn-lg" style="justify-content:center;">📝 Manual ADR Report</a>
-      <a href="/naranjo" class="btn btn-outline btn-lg" style="justify-content:center;">🧮 Naranjo Scale Calculator</a>
-      <a href="/analytics" class="btn btn-outline btn-lg" style="justify-content:center;">📈 View Analytics</a>
+  <!-- Quick Actions -->
+  <div class="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 hover:border-brand-300 dark:hover:border-brand-500/30 transition-colors">
+    <div class="flex justify-between items-center mb-5 pb-4 border-b border-gray-200 dark:border-gray-700/50">
+      <h3 class="font-semibold text-gray-900 dark:text-white">Quick Actions</h3>
     </div>
-    <div style="margin-top:24px; padding:16px; background:var(--bg-secondary); border-radius:var(--radius-md); border:1px solid var(--border-color);">
-      <h4 style="font-size:13px; color:var(--text-secondary); margin-bottom:8px;">System Info</h4>
-      <p style="font-size:12px; color:var(--text-muted);">Assessment: Naranjo Scale, WHO-UMC</p>
-      <p style="font-size:12px; color:var(--text-muted);">OCR: Gemini AI Multimodal</p>
-      <p style="font-size:12px; color:var(--text-muted);">Mobile PWA with camera scanning</p>
+    <div class="flex flex-col gap-3">
+      <a href="/capture" class="gradient-bg text-white px-5 py-3 rounded-lg font-semibold text-sm text-center shadow-lg shadow-brand-500/20 hover:-translate-y-0.5 transition-all">📷 Scan ADR Form</a>
+      <a href="/form" class="border border-brand-500 text-brand-500 px-5 py-3 rounded-lg font-semibold text-sm text-center hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors">📝 Manual ADR Report</a>
+      <a href="/naranjo" class="border border-brand-500 text-brand-500 px-5 py-3 rounded-lg font-semibold text-sm text-center hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors">🧮 Naranjo Scale Calculator</a>
+      <a href="/analytics" class="border border-brand-500 text-brand-500 px-5 py-3 rounded-lg font-semibold text-sm text-center hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors">📈 View Analytics</a>
+    </div>
+    <div class="mt-5 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700/30">
+      <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">System Info</h4>
+      <p class="text-xs text-gray-400 dark:text-gray-500">Assessment: Naranjo Scale, WHO-UMC</p>
+      <p class="text-xs text-gray-400 dark:text-gray-500">OCR: Gemini AI Multimodal</p>
+      <p class="text-xs text-gray-400 dark:text-gray-500">Mobile PWA with camera scanning</p>
     </div>
   </div>
 </div>

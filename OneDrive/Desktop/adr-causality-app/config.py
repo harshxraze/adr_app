@@ -5,8 +5,18 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'adr-causality-secret-key-2026')
 
-    # Database: support PostgreSQL (Supabase) via DATABASE_URL env var, fallback to SQLite
-    db_url = os.environ.get('DATABASE_URL', f'sqlite:///{os.path.join(BASE_DIR, "adr_database.db")}')
+    db_url = os.environ.get('DATABASE_URL')
+    
+    has_psycopg2 = False
+    try:
+        import psycopg2
+        has_psycopg2 = True
+    except ImportError:
+        pass
+
+    if not db_url or not has_psycopg2:
+        db_url = f'sqlite:///{os.path.join(BASE_DIR, "adr_database.db")}'
+
     # Heroku/Supabase sometimes uses postgres:// which SQLAlchemy doesn't accept
     if db_url.startswith('postgres://'):
         db_url = db_url.replace('postgres://', 'postgresql://', 1)

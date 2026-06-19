@@ -1,381 +1,488 @@
 {% extends "base.html" %}
 {% block title %}New ADR Report{% endblock %}
 
-{% block head %}
-<style>
-  .ocr-banner {
-    display: none;
-    padding: 14px 18px;
-    background: rgba(245, 158, 11, 0.1);
-    border: 1px solid rgba(245, 158, 11, 0.3);
-    border-radius: var(--radius-sm);
-    color: #fbbf24;
-    font-size: 14px;
-    margin-bottom: 20px;
-    align-items: center;
-    gap: 10px;
-  }
-  .ocr-banner.active { display: flex; }
-
-  .mobile-form-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    padding: 24px;
-    margin-bottom: 20px;
-  }
-
-  .mobile-form-card .section-header {
-    margin-top: 0;
-  }
-
-  .form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    margin-bottom: 16px;
-  }
-
-  .form-field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .form-field label {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-secondary);
-  }
-
-  .form-field input,
-  .form-field select,
-  .form-field textarea {
-    width: 100%;
-    padding: 10px 14px;
-    background: var(--bg-input);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    font-family: 'Inter', sans-serif;
-    font-size: 16px;
-    transition: var(--transition);
-  }
-
-  .form-field input:focus,
-  .form-field select:focus,
-  .form-field textarea:focus {
-    outline: none;
-    border-color: var(--border-focus);
-    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
-  }
-
-  .form-field textarea { resize: vertical; min-height: 80px; }
-  .form-field select { cursor: pointer; }
-
-  .form-field.full { grid-column: 1 / -1; }
-
-  .checkbox-field {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 0;
-    font-size: 14px;
-    color: var(--text-secondary);
-    cursor: pointer;
-  }
-
-  .checkbox-field input {
-    width: 18px;
-    height: 18px;
-    accent-color: var(--accent-indigo);
-    cursor: pointer;
-  }
-
-  .med-table-wrapper {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .med-table-wrapper table {
-    min-width: 800px;
-  }
-
-  .submit-section {
-    text-align: center;
-    padding: 32px 0;
-  }
-
-  .submit-section .btn {
-    min-width: 240px;
-    min-height: 52px;
-    font-size: 16px;
-  }
-
-  @media (max-width: 768px) {
-    .form-row {
-      grid-template-columns: 1fr;
-      gap: 12px;
-    }
-    .mobile-form-card { padding: 16px; }
-  }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="page-header">
-  <div><h1>New ADR Report</h1><p>IPC Suspected Adverse Drug Reaction Reporting Form</p></div>
-  <a href="/capture" class="btn btn-outline">📷 Scan Instead</a>
+<!-- Mobile top padding helper -->
+<div class="ocr-banner hidden p-4 mb-5 rounded-lg border flex items-center gap-3 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50 text-amber-800 dark:text-amber-300 toast-anim" id="ocrBanner">
+  <span class="text-xl">⚠️</span>
+  <span class="text-sm font-medium">Form pre-filled from scanned image — please review and correct any errors before submitting.</span>
 </div>
 
-<!-- OCR Banner -->
-<div class="ocr-banner" id="ocrBanner">
-  <span>⚠️</span>
-  <span>Form pre-filled from scanned image — please review and correct any errors before submitting.</span>
+<div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+  <div>
+    <h1 class="text-xl sm:text-2xl font-black text-gray-900 dark:text-white flex items-center gap-2">
+      <span class="text-red-600">📝</span> IPC ADR Reporting Form
+    </h1>
+    <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">Voluntary Adverse Drug Reaction Reporting System (PvPI)</p>
+  </div>
+  <a href="/capture" class="w-full lg:w-auto px-4 py-2 text-center border border-red-600 text-red-600 dark:text-red-500 rounded-lg text-sm font-bold hover:bg-red-50 dark:hover:bg-red-950/20 transition-all flex items-center justify-center gap-2">
+    📷 Scan Form
+  </a>
 </div>
 
-<form id="adrForm">
-
-<!-- Section A: Patient Information -->
-<div class="mobile-form-card">
-  <div class="section-header">A. Patient Information</div>
-  <div class="form-row">
-    <div class="form-field">
-      <label>Patient Initials *</label>
-      <input type="text" name="patient_initials" id="f_patient_initials" placeholder="e.g. R.K.">
-    </div>
-    <div class="form-field">
-      <label>Age / Date of Birth</label>
-      <input type="text" name="patient_age" id="f_patient_age" placeholder="e.g. 45 or 15/03/1980">
-    </div>
-  </div>
-  <div class="form-row">
-    <div class="form-field">
-      <label>Gender</label>
-      <select name="gender" id="f_gender">
-        <option value="">Select</option>
-        <option value="M">Male</option>
-        <option value="F">Female</option>
-        <option value="Other">Other</option>
-      </select>
-    </div>
-    <div class="form-field">
-      <label>Weight (Kg)</label>
-      <input type="number" name="weight_kg" id="f_weight_kg" placeholder="e.g. 65" step="0.1">
-    </div>
-  </div>
-</div>
-
-<!-- Section B: Suspected Adverse Reaction -->
-<div class="mobile-form-card">
-  <div class="section-header">B. Suspected Adverse Reaction</div>
-  <div class="form-row">
-    <div class="form-field">
-      <label>Reaction Start Date</label>
-      <input type="text" name="reaction_start_date" id="f_reaction_start_date" placeholder="dd/mm/yyyy">
-    </div>
-    <div class="form-field">
-      <label>Reaction Stop Date</label>
-      <input type="text" name="reaction_stop_date" id="f_reaction_stop_date" placeholder="dd/mm/yyyy">
-    </div>
-  </div>
-  <div class="form-row">
-    <div class="form-field full">
-      <label>Describe Reaction / Event *</label>
-      <textarea name="reaction_description" id="f_reaction_description" placeholder="Describe the adverse reaction in detail..."></textarea>
-    </div>
-  </div>
-  <div class="form-row">
-    <div class="form-field full">
-      <label>Relevant Investigations (with dates)</label>
-      <textarea name="relevant_investigations" id="f_relevant_investigations" placeholder="Lab tests, imaging, etc." style="min-height:60px;"></textarea>
-    </div>
-  </div>
-  <div class="form-row">
-    <div class="form-field full">
-      <label>Medical / Medication History</label>
-      <textarea name="medical_history" id="f_medical_history" placeholder="Allergies, pregnancy, hepatic/renal dysfunction, etc." style="min-height:60px;"></textarea>
-    </div>
-  </div>
-</div>
-
-<!-- Seriousness & Outcome -->
-<div class="mobile-form-card">
-  <div class="section-header">Seriousness & Outcome</div>
-  <label class="checkbox-field">
-    <input type="checkbox" name="is_serious" id="f_is_serious"> Serious Reaction
-  </label>
-  <div style="padding-left:26px; margin-bottom:12px;">
-    <label class="checkbox-field"><input type="checkbox" name="seriousness_death" id="f_seriousness_death"> Death</label>
-    <label class="checkbox-field"><input type="checkbox" name="seriousness_life_threatening" id="f_seriousness_life_threatening"> Life Threatening</label>
-    <label class="checkbox-field"><input type="checkbox" name="seriousness_hospitalization" id="f_seriousness_hospitalization"> Hospitalization</label>
-    <label class="checkbox-field"><input type="checkbox" name="seriousness_disability" id="f_seriousness_disability"> Disability</label>
-    <label class="checkbox-field"><input type="checkbox" name="seriousness_congenital_anomaly" id="f_seriousness_congenital_anomaly"> Congenital Anomaly</label>
-    <label class="checkbox-field"><input type="checkbox" name="seriousness_other" id="f_seriousness_other"> Other Medically Important</label>
-  </div>
-  <div class="form-row">
-    <div class="form-field">
-      <label>Outcome</label>
-      <select name="outcome" id="f_outcome">
-        <option value="">Select</option>
-        <option value="recovered">Recovered</option>
-        <option value="recovering">Recovering</option>
-        <option value="not_recovered">Not Recovered</option>
-        <option value="fatal">Fatal</option>
-        <option value="recovered_with_sequelae">Recovered with Sequelae</option>
-        <option value="unknown">Unknown</option>
-      </select>
-    </div>
-  </div>
-</div>
-
-<!-- Section C: Suspected Medications -->
-<div class="mobile-form-card">
-  <div class="section-header">C. Suspected Medication(s)</div>
-  <div class="med-table-wrapper">
-    <table id="medTable">
-      <thead>
-        <tr>
-          <th>#</th><th>Drug Name *</th><th>Manufacturer</th><th>Batch No.</th>
-          <th>Dose</th><th>Route</th><th>Frequency</th>
-          <th>Therapy Start</th><th>Therapy Stop</th><th>Indication</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>1</td>
-          <td><input type="text" name="med_drug_1" id="f_drug_name" placeholder="Drug name"></td>
-          <td><input type="text" name="med_mfr_1" placeholder="Mfr"></td>
-          <td><input type="text" name="med_batch_1" placeholder="Batch"></td>
-          <td><input type="text" name="med_dose_1" id="f_dose" placeholder="Dose"></td>
-          <td><input type="text" name="med_route_1" id="f_route" placeholder="Route"></td>
-          <td><input type="text" name="med_freq_1" placeholder="Freq"></td>
-          <td><input type="text" name="med_start_1" id="f_therapy_start" placeholder="dd/mm/yyyy"></td>
-          <td><input type="text" name="med_stop_1" id="f_therapy_stop" placeholder="dd/mm/yyyy"></td>
-          <td><input type="text" name="med_ind_1" placeholder="Indication"></td>
-        </tr>
-        <tr>
-          <td>2</td>
-          <td><input type="text" name="med_drug_2"></td><td><input type="text" name="med_mfr_2"></td>
-          <td><input type="text" name="med_batch_2"></td><td><input type="text" name="med_dose_2"></td>
-          <td><input type="text" name="med_route_2"></td><td><input type="text" name="med_freq_2"></td>
-          <td><input type="text" name="med_start_2"></td><td><input type="text" name="med_stop_2"></td>
-          <td><input type="text" name="med_ind_2"></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div style="margin-top:16px;">
-    <div class="form-row">
-      <div class="form-field">
-        <label>Action Taken</label>
-        <select name="action_taken" id="f_action_taken">
-          <option value="">Select</option>
-          <option value="drug_withdrawn">Drug Withdrawn</option>
-          <option value="dose_reduced">Dose Reduced</option>
-          <option value="dose_increased">Dose Increased</option>
-          <option value="not_changed">Dose Not Changed</option>
-          <option value="not_applicable">Not Applicable</option>
-          <option value="unknown">Unknown</option>
-        </select>
+<form id="adrForm" class="max-w-6xl mx-auto bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xl rounded-xl overflow-hidden text-gray-800 dark:text-gray-200 text-xs sm:text-sm transition-colors duration-300">
+  
+  <!-- FORM HEADER GRID -->
+  <div class="grid grid-cols-1 md:grid-cols-12 border-b border-gray-200 dark:border-gray-800">
+    <!-- IPC Branding (Cols 1-8) -->
+    <div class="md:col-span-8 p-4 flex flex-col sm:flex-row gap-4 items-center sm:items-start text-center sm:text-left bg-gray-50/50 dark:bg-gray-950/20">
+      <div class="w-16 h-16 flex-shrink-0 flex items-center justify-center bg-white rounded-full p-1 border border-gray-200 dark:border-gray-800 shadow-sm">
+        <!-- Inline Ashoka Emblem SVG -->
+        <svg viewBox="0 0 100 100" class="w-12 h-12 text-red-800 dark:text-red-500" fill="currentColor">
+          <path d="M50 5C45 5 42 10 42 15C42 20 45 25 50 25C55 25 58 20 58 15C58 10 55 5 50 5ZM50 27C40 27 35 32 35 38C35 44 40 46 45 46C43 48 40 52 40 58C40 64 45 70 50 70C55 70 60 64 60 58C60 52 57 48 55 46C60 46 65 44 65 38C65 32 60 27 50 27ZM50 72C42 72 38 75 38 80C38 85 45 88 50 88C55 88 62 85 62 80C62 75 58 72 50 72Z" />
+        </svg>
       </div>
-      <div class="form-field">
-        <label>Rechallenge Result</label>
-        <select name="reintroduction_result" id="f_reintroduction_result">
-          <option value="">Select</option>
-          <option value="yes">Yes — Reaction Reappeared</option>
-          <option value="no">No — No Recurrence</option>
-          <option value="effect_unknown">Effect Unknown</option>
-        </select>
+      <div>
+        <h2 class="text-base sm:text-lg font-black tracking-tight text-red-800 dark:text-red-500 uppercase">Suspected Adverse Drug Reaction Reporting Form</h2>
+        <p class="text-[11px] font-semibold text-gray-500 dark:text-gray-400 italic">For VOLUNTARY reporting of ADRs by Healthcare Professionals</p>
+        <h3 class="font-bold text-gray-800 dark:text-gray-300 mt-1 uppercase text-[11px]">Indian Pharmacopoeia Commission</h3>
+        <p class="text-[10px] text-gray-400 dark:text-gray-500 leading-tight">National Coordination Centre - Pharmacovigilance Programme of India (PvPI)<br>Ministry of Health & Family Welfare, Government of India, Ghaziabad-201002</p>
+        <p class="text-[10px] text-red-700 dark:text-red-400 font-bold mt-1">PvPI Helpline (Toll Free): 1800-180-3024 (9:00 AM to 5:30 PM, Mon-Fri)</p>
+      </div>
+    </div>
+
+    <!-- AMC NCC Use (Cols 4) -->
+    <div class="md:col-span-4 p-4 border-t md:border-t-0 md:border-l border-gray-200 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-950/40">
+      <div class="border border-red-800/40 dark:border-red-500/20 rounded p-2.5 bg-red-50/10">
+        <h3 class="text-center font-bold text-red-800 dark:text-red-500 tracking-wider text-[11px] uppercase border-b border-red-800/20 pb-1 mb-2">For AMC / NCC Use Only</h3>
+        <div class="space-y-2">
+          <div>
+            <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Reg. No. / IPD / OPD / CR No.</label>
+            <input type="text" id="f_reg_no" class="w-full mt-0.5 px-2 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded font-semibold text-xs text-gray-800 dark:text-white">
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">AMC Report No.</label>
+            <input type="text" id="f_amc_report_no" class="w-full mt-0.5 px-2 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded font-semibold text-xs text-gray-800 dark:text-white">
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Worldwide Unique No.</label>
+            <input type="text" id="f_worldwide_unique_no" class="w-full mt-0.5 px-2 py-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded font-semibold text-xs text-gray-800 dark:text-white">
+          </div>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- AMC/NCC Fields -->
-<div class="mobile-form-card">
-  <div class="section-header">AMC / NCC Use</div>
-  <div class="form-row">
-    <div class="form-field">
-      <label>Reg No. / IPD / OPD / CR No.</label>
-      <input type="text" name="reg_no" id="f_reg_no">
+  <!-- CASE TYPE SELECTOR BAR -->
+  <div class="px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 flex flex-wrap gap-6 items-center">
+    <div class="flex items-center gap-2">
+      <input type="radio" name="case_type" id="case_type_initial" value="initial" class="w-4 h-4 text-red-600 border-gray-300 dark:border-gray-700 focus:ring-red-500" checked>
+      <label for="case_type_initial" class="font-bold text-gray-700 dark:text-gray-300 cursor-pointer">Initial Case</label>
     </div>
-    <div class="form-field">
-      <label>AMC Report No.</label>
-      <input type="text" name="amc_report_no" id="f_amc_report_no">
+    <div class="flex items-center gap-2">
+      <input type="radio" name="case_type" id="case_type_follow" value="follow_up" class="w-4 h-4 text-red-600 border-gray-300 dark:border-gray-700 focus:ring-red-500">
+      <label for="case_type_follow" class="font-bold text-gray-700 dark:text-gray-300 cursor-pointer">Follow-up Case</label>
     </div>
   </div>
-  <div class="form-row">
-    <div class="form-field">
-      <label>Worldwide Unique No.</label>
-      <input type="text" name="worldwide_unique_no" id="f_worldwide_unique_no">
-    </div>
-  </div>
-</div>
 
-<!-- Additional Info -->
-<div class="mobile-form-card">
-  <div class="section-header">Additional Information</div>
-  <div class="form-row">
-    <div class="form-field full">
-      <label>Additional Info</label>
-      <textarea name="additional_info" id="f_additional_info" placeholder="Any additional information..." style="min-height:60px;"></textarea>
+  <!-- A. PATIENT INFORMATION -->
+  <div class="bg-red-800 dark:bg-red-950 text-white font-bold px-4 py-1.5 uppercase tracking-wider text-[11px]">
+    A. Patient Information
+  </div>
+  <div class="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 border-b border-gray-200 dark:border-gray-800">
+    <div>
+      <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">1. Patient Initials</label>
+      <input type="text" id="f_patient_initials" placeholder="e.g. A.N.I." class="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-white focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none">
+    </div>
+    <div>
+      <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">2. Age or Date of Birth</label>
+      <input type="text" id="f_patient_age" placeholder="e.g. 32 Yrs or 15/03/1990" class="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-white focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none">
+    </div>
+    <div>
+      <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">3. Gender</label>
+      <div class="flex gap-4 mt-2">
+        <label class="flex items-center gap-1.5 cursor-pointer">
+          <input type="radio" name="gender" value="M" class="w-4 h-4 text-red-600 border-gray-300 dark:border-gray-700"> M
+        </label>
+        <label class="flex items-center gap-1.5 cursor-pointer">
+          <input type="radio" name="gender" value="F" class="w-4 h-4 text-red-600 border-gray-300 dark:border-gray-700"> F
+        </label>
+        <label class="flex items-center gap-1.5 cursor-pointer">
+          <input type="radio" name="gender" value="Other" class="w-4 h-4 text-red-600 border-gray-300 dark:border-gray-700"> Other
+        </label>
+      </div>
+    </div>
+    <div>
+      <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">4. Weight (in Kg.)</label>
+      <input type="number" id="f_weight_kg" placeholder="e.g. 65" step="0.1" class="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-white focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none">
     </div>
   </div>
-</div>
 
-<!-- Section D: Reporter Details -->
-<div class="mobile-form-card">
-  <div class="section-header">D. Reporter Details</div>
-  <div class="form-row">
-    <div class="form-field">
-      <label>Reporter Name</label>
-      <input type="text" name="reporter_name" id="f_reporter_name">
-    </div>
-    <div class="form-field">
-      <label>Occupation / Designation</label>
-      <input type="text" name="reporter_occupation" id="f_reporter_designation">
-    </div>
+  <!-- B. SUSPECTED ADVERSE REACTION -->
+  <div class="bg-red-800 dark:bg-red-950 text-white font-bold px-4 py-1.5 uppercase tracking-wider text-[11px]">
+    B. Suspected Adverse Reaction
   </div>
-  <div class="form-row">
-    <div class="form-field full">
-      <label>Address</label>
-      <input type="text" name="reporter_address" id="f_reporter_address">
+  <div class="grid grid-cols-1 lg:grid-cols-12 border-b border-gray-200 dark:border-gray-800">
+    <!-- Left Column (Cols 7) -->
+    <div class="lg:col-span-7 p-4 space-y-4 border-r-0 lg:border-r border-gray-200 dark:border-gray-800">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">5. Reaction Start Date</label>
+          <input type="text" id="f_reaction_start_date" placeholder="dd/mm/yyyy" class="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-white focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">6. Reaction Stop Date</label>
+          <input type="text" id="f_reaction_stop_date" placeholder="dd/mm/yyyy" class="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-white focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none">
+        </div>
+      </div>
+      <div>
+        <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">7. Describe Event / Reaction management with details, if any</label>
+        <textarea id="f_reaction_description" placeholder="Enter clinical description, symptoms, and medical treatment of the reaction..." class="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-white focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none min-h-[120px]"></textarea>
+      </div>
     </div>
-  </div>
-  <div class="form-row">
-    <div class="form-field">
-      <label>PIN Code</label>
-      <input type="text" name="reporter_pin" id="f_reporter_pin">
-    </div>
-    <div class="form-field">
-      <label>Email</label>
-      <input type="email" name="reporter_email" id="f_reporter_email">
-    </div>
-  </div>
-  <div class="form-row">
-    <div class="form-field">
-      <label>Contact No.</label>
-      <input type="tel" name="reporter_contact" id="f_reporter_contact">
-    </div>
-    <div class="form-field">
-      <label>Date of Report</label>
-      <input type="text" name="report_date" id="f_report_date" placeholder="dd/mm/yyyy">
-    </div>
-  </div>
-</div>
 
-<!-- Submit -->
-<div class="submit-section">
-  <button type="button" class="btn btn-primary btn-lg" id="submitBtn" onclick="submitReport()">
-    🔬 Submit & Run Causality Assessment
-  </button>
-</div>
+    <!-- Right Column (Cols 5) -->
+    <div class="lg:col-span-5 p-4 space-y-4 bg-gray-50/30 dark:bg-gray-950/10">
+      <div>
+        <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">12. Relevant investigations with dates</label>
+        <textarea id="f_relevant_investigations" placeholder="e.g. lab results, radiology, liver enzymes, etc." class="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-xs text-gray-800 dark:text-white focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none min-h-[70px]"></textarea>
+      </div>
+      <div>
+        <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">13. Relevant medical / medication history</label>
+        <textarea id="f_medical_history" placeholder="e.g. allergies, pregnancy, hepatic/renal dysfunction, etc." class="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-xs text-gray-800 dark:text-white focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none min-h-[70px]"></textarea>
+      </div>
+
+      <!-- Seriousness and Outcome side grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-gray-200 dark:border-gray-800">
+        <div>
+          <div class="border-b border-gray-200 dark:border-gray-800 pb-1 mb-1">
+            <span class="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase">14. Seriousness</span>
+          </div>
+          <div class="flex gap-4 my-2">
+            <label class="flex items-center gap-1.5 cursor-pointer text-xs">
+              <input type="radio" name="is_serious_radio" id="f_is_serious_yes" value="yes" onclick="toggleSeriousness(true)" class="w-4 h-4 text-red-600 border-gray-300 dark:border-gray-700"> Yes
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer text-xs">
+              <input type="radio" name="is_serious_radio" id="f_is_serious_no" value="no" onclick="toggleSeriousness(false)" checked class="w-4 h-4 text-red-600 border-gray-300 dark:border-gray-700"> No
+            </label>
+          </div>
+          <div id="seriousness_details_container" class="hidden space-y-1 pl-1">
+            <label class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+              <input type="checkbox" id="f_seriousness_death" class="w-3 h-3 text-red-600 rounded"> Death
+            </label>
+            <label class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+              <input type="checkbox" id="f_seriousness_life_threatening" class="w-3 h-3 text-red-600 rounded"> Life threatening
+            </label>
+            <label class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+              <input type="checkbox" id="f_seriousness_hospitalization" class="w-3 h-3 text-red-600 rounded"> Hospitalization
+            </label>
+            <label class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+              <input type="checkbox" id="f_seriousness_disability" class="w-3 h-3 text-red-600 rounded"> Disability
+            </label>
+            <label class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+              <input type="checkbox" id="f_seriousness_congenital_anomaly" class="w-3 h-3 text-red-600 rounded"> Congenital anomaly
+            </label>
+            <label class="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+              <input type="checkbox" id="f_seriousness_other" class="w-3 h-3 text-red-600 rounded"> Other Medically Important
+            </label>
+          </div>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase border-b border-gray-200 dark:border-gray-800 pb-1 mb-2">15. Outcome</label>
+          <div class="space-y-1.5">
+            <select id="f_outcome" class="w-full px-2 py-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded text-xs text-gray-800 dark:text-white">
+              <option value="">Select Outcome</option>
+              <option value="recovered">Recovered</option>
+              <option value="recovering">Recovering</option>
+              <option value="not_recovered">Not Recovered</option>
+              <option value="fatal">Fatal</option>
+              <option value="recovered_with_sequelae">Recovered with sequelae</option>
+              <option value="unknown">Unknown</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- C. SUSPECTED MEDICATION(S) -->
+  <div class="bg-red-800 dark:bg-red-950 text-white font-bold px-4 py-1.5 uppercase tracking-wider text-[11px]">
+    C. Suspected Medication(s)
+  </div>
+  <div class="p-4 space-y-6 border-b border-gray-200 dark:border-gray-800">
+    
+    <!-- Drug Table -->
+    <div class="overflow-x-auto border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm">
+      <table class="w-full text-left text-xs border-collapse min-w-[1000px]">
+        <thead>
+          <tr class="bg-gray-50 dark:bg-gray-950 text-[10px] font-bold uppercase text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-800">
+            <th class="py-2.5 px-3 border-r border-gray-200 dark:border-gray-800 w-10 text-center">#</th>
+            <th class="py-2.5 px-3 border-r border-gray-200 dark:border-gray-800 min-w-[150px]">8. Brand/Generic Name</th>
+            <th class="py-2.5 px-3 border-r border-gray-200 dark:border-gray-800 min-w-[100px]">Manufacturer (if known)</th>
+            <th class="py-2.5 px-3 border-r border-gray-200 dark:border-gray-800">Batch No.</th>
+            <th class="py-2.5 px-3 border-r border-gray-200 dark:border-gray-800">Expiry Date</th>
+            <th class="py-2.5 px-3 border-r border-gray-200 dark:border-gray-800 w-20">Dose</th>
+            <th class="py-2.5 px-3 border-r border-gray-200 dark:border-gray-800 w-24">Route</th>
+            <th class="py-2.5 px-3 border-r border-gray-200 dark:border-gray-800 w-24">Frequency</th>
+            <th class="py-2.5 px-3 border-r border-gray-200 dark:border-gray-800 w-28">Therapy Start</th>
+            <th class="py-2.5 px-3 border-r border-gray-200 dark:border-gray-800 w-28">Therapy Stop</th>
+            <th class="py-2.5 px-3 min-w-[120px]">Indication</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900">
+          {% for i in range(1, 5) %}
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-950/20">
+            <td class="py-2 px-3 text-center border-r border-gray-200 dark:border-gray-800 font-bold bg-gray-50/50 dark:bg-gray-950/10">{{ "i" if i == 1 else "ii" if i == 2 else "iii" if i == 3 else "iv" }}</td>
+            <td class="py-1 px-1.5 border-r border-gray-200 dark:border-gray-800">
+              <input type="text" name="med_drug_{{i}}" id="{% if i == 1 %}f_drug_name{% endif %}" placeholder="e.g. DYNAPAR AQ" class="w-full px-2 py-1 border border-gray-200 dark:border-gray-800 rounded bg-transparent text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none font-medium">
+            </td>
+            <td class="py-1 px-1.5 border-r border-gray-200 dark:border-gray-800">
+              <input type="text" name="med_mfr_{{i}}" placeholder="e.g. Troikaa" class="w-full px-2 py-1 border border-gray-200 dark:border-gray-800 rounded bg-transparent text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none">
+            </td>
+            <td class="py-1 px-1.5 border-r border-gray-200 dark:border-gray-800">
+              <input type="text" name="med_batch_{{i}}" placeholder="Batch No." class="w-full px-2 py-1 border border-gray-200 dark:border-gray-800 rounded bg-transparent text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none">
+            </td>
+            <td class="py-1 px-1.5 border-r border-gray-200 dark:border-gray-800">
+              <input type="text" name="med_exp_{{i}}" placeholder="mm/yyyy" class="w-full px-2 py-1 border border-gray-200 dark:border-gray-800 rounded bg-transparent text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none">
+            </td>
+            <td class="py-1 px-1.5 border-r border-gray-200 dark:border-gray-800">
+              <input type="text" name="med_dose_{{i}}" id="{% if i == 1 %}f_dose{% endif %}" placeholder="e.g. 75 mg" class="w-full px-2 py-1 border border-gray-200 dark:border-gray-800 rounded bg-transparent text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none">
+            </td>
+            <td class="py-1 px-1.5 border-r border-gray-200 dark:border-gray-800">
+              <input type="text" name="med_route_{{i}}" id="{% if i == 1 %}f_route{% endif %}" placeholder="e.g. IV" class="w-full px-2 py-1 border border-gray-200 dark:border-gray-800 rounded bg-transparent text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none">
+            </td>
+            <td class="py-1 px-1.5 border-r border-gray-200 dark:border-gray-800">
+              <input type="text" name="med_freq_{{i}}" placeholder="e.g. Once" class="w-full px-2 py-1 border border-gray-200 dark:border-gray-800 rounded bg-transparent text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none">
+            </td>
+            <td class="py-1 px-1.5 border-r border-gray-200 dark:border-gray-800">
+              <input type="text" name="med_start_{{i}}" id="{% if i == 1 %}f_therapy_start{% endif %}" placeholder="dd/mm/yyyy" class="w-full px-2 py-1 border border-gray-200 dark:border-gray-800 rounded bg-transparent text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none">
+            </td>
+            <td class="py-1 px-1.5 border-r border-gray-200 dark:border-gray-800">
+              <input type="text" name="med_stop_{{i}}" id="{% if i == 1 %}f_therapy_stop{% endif %}" placeholder="dd/mm/yyyy" class="w-full px-2 py-1 border border-gray-200 dark:border-gray-800 rounded bg-transparent text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none">
+            </td>
+            <td class="py-1 px-1.5">
+              <input type="text" name="med_ind_{{i}}" placeholder="Indication" class="w-full px-2 py-1 border border-gray-200 dark:border-gray-800 rounded bg-transparent text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none">
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Tables for Q9 & Q10 -->
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      
+      <!-- 9. Action Taken Table -->
+      <div>
+        <h4 class="font-bold text-gray-800 dark:text-gray-300 text-xs mb-2 uppercase tracking-wide">
+          9. Action taken after reaction (please select for each drug)
+        </h4>
+        <div class="overflow-x-auto border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm">
+          <table class="w-full text-left text-xs border-collapse min-w-[500px]">
+            <thead>
+              <tr class="bg-gray-50 dark:bg-gray-950 text-[10px] font-bold uppercase text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-800">
+                <th class="py-2.5 px-3 border-r border-gray-200 dark:border-gray-800 w-10 text-center">S.No.</th>
+                <th class="py-2.5 px-2 border-r border-gray-200 dark:border-gray-800 text-center">Drug Withdrawn</th>
+                <th class="py-2.5 px-2 border-r border-gray-200 dark:border-gray-800 text-center">Dose Increased</th>
+                <th class="py-2.5 px-2 border-r border-gray-200 dark:border-gray-800 text-center">Dose Reduced</th>
+                <th class="py-2.5 px-2 border-r border-gray-200 dark:border-gray-800 text-center">Dose Not Changed</th>
+                <th class="py-2.5 px-2 border-r border-gray-200 dark:border-gray-800 text-center">Not Applicable</th>
+                <th class="py-2.5 px-2 text-center">Unknown</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900 text-center">
+              {% for i in range(1, 5) %}
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-950/20">
+                <td class="py-2 px-3 border-r border-gray-200 dark:border-gray-800 font-bold bg-gray-50/50 dark:bg-gray-950/10">{{ "i" if i == 1 else "ii" if i == 2 else "iii" if i == 3 else "iv" }}</td>
+                <td class="py-2 px-2 border-r border-gray-200 dark:border-gray-800">
+                  <input type="radio" name="action_taken_{{i}}" value="drug_withdrawn" class="w-3.5 h-3.5 text-red-600">
+                </td>
+                <td class="py-2 px-2 border-r border-gray-200 dark:border-gray-800">
+                  <input type="radio" name="action_taken_{{i}}" value="dose_increased" class="w-3.5 h-3.5 text-red-600">
+                </td>
+                <td class="py-2 px-2 border-r border-gray-200 dark:border-gray-800">
+                  <input type="radio" name="action_taken_{{i}}" value="dose_reduced" class="w-3.5 h-3.5 text-red-600">
+                </td>
+                <td class="py-2 px-2 border-r border-gray-200 dark:border-gray-800">
+                  <input type="radio" name="action_taken_{{i}}" value="dose_not_changed" class="w-3.5 h-3.5 text-red-600">
+                </td>
+                <td class="py-2 px-2 border-r border-gray-200 dark:border-gray-800">
+                  <input type="radio" name="action_taken_{{i}}" value="not_applicable" class="w-3.5 h-3.5 text-red-600">
+                </td>
+                <td class="py-2 px-2">
+                  <input type="radio" name="action_taken_{{i}}" value="unknown" class="w-3.5 h-3.5 text-red-600">
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 10. Reappearance after Reintroduction Table -->
+      <div>
+        <h4 class="font-bold text-gray-800 dark:text-gray-300 text-xs mb-2 uppercase tracking-wide">
+          10. Reaction reappeared after reintroduction of suspected medication
+        </h4>
+        <div class="overflow-x-auto border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm">
+          <table class="w-full text-left text-xs border-collapse min-w-[500px]">
+            <thead>
+              <tr class="bg-gray-50 dark:bg-gray-950 text-[10px] font-bold uppercase text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-800">
+                <th class="py-2.5 px-3 border-r border-gray-200 dark:border-gray-800 w-10 text-center">S.No.</th>
+                <th class="py-2.5 px-2 border-r border-gray-200 dark:border-gray-800 text-center w-24">Yes (Reappeared)</th>
+                <th class="py-2.5 px-2 border-r border-gray-200 dark:border-gray-800 text-center w-24">No (No Recurrence)</th>
+                <th class="py-2.5 px-2 border-r border-gray-200 dark:border-gray-800 text-center w-24">Effect Unknown</th>
+                <th class="py-2.5 px-3 text-center min-w-[120px]">Dose (if re-introduced)</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900 text-center">
+              {% for i in range(1, 5) %}
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-950/20">
+                <td class="py-2.5 px-3 border-r border-gray-200 dark:border-gray-800 font-bold bg-gray-50/50 dark:bg-gray-950/10">{{ "i" if i == 1 else "ii" if i == 2 else "iii" if i == 3 else "iv" }}</td>
+                <td class="py-2 px-2 border-r border-gray-200 dark:border-gray-800">
+                  <input type="radio" name="reintroduction_{{i}}" value="yes" class="w-3.5 h-3.5 text-red-600">
+                </td>
+                <td class="py-2 px-2 border-r border-gray-200 dark:border-gray-800">
+                  <input type="radio" name="reintroduction_{{i}}" value="no" class="w-3.5 h-3.5 text-red-600">
+                </td>
+                <td class="py-2 px-2 border-r border-gray-200 dark:border-gray-800">
+                  <input type="radio" name="reintroduction_{{i}}" value="effect_unknown" class="w-3.5 h-3.5 text-red-600">
+                </td>
+                <td class="py-1 px-1.5">
+                  <input type="text" name="med_reintro_dose_{{i}}" placeholder="e.g. 50 mg" class="w-full px-2 py-0.5 border border-gray-200 dark:border-gray-800 rounded bg-transparent text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none">
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 11. CONCOMITANT MEDICATIONS -->
+  <div class="bg-red-800 dark:bg-red-950 text-white font-bold px-4 py-1.5 uppercase tracking-wider text-[11px]">
+    11. Concomitant medical product including self-medication and herbal remedies (Exclude those used to treat reaction)
+  </div>
+  <div class="p-4 border-b border-gray-200 dark:border-gray-800">
+    <div class="overflow-x-auto border border-gray-200 dark:border-gray-800 rounded-lg shadow-sm">
+      <table class="w-full text-left text-xs border-collapse min-w-[800px]">
+        <thead>
+          <tr class="bg-gray-50 dark:bg-gray-950 text-[10px] font-bold uppercase text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-800">
+            <th class="py-2.5 px-3 border-r border-gray-200 dark:border-gray-800 w-10 text-center">#</th>
+            <th class="py-2.5 px-3 border-r border-gray-200 dark:border-gray-800 min-w-[200px]">Name (Brand/Generic)</th>
+            <th class="py-2.5 px-3 border-r border-gray-200 dark:border-gray-800 w-24">Dose</th>
+            <th class="py-2.5 px-3 border-r border-gray-200 dark:border-gray-800 w-28">Route</th>
+            <th class="py-2.5 px-3 border-r border-gray-200 dark:border-gray-800 w-28">Frequency</th>
+            <th class="py-2.5 px-3 border-r border-gray-200 dark:border-gray-800 w-32">Therapy Start</th>
+            <th class="py-2.5 px-3 border-r border-gray-200 dark:border-gray-800 w-32">Therapy Stop</th>
+            <th class="py-2.5 px-3">Indication</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900">
+          {% for i in range(1, 4) %}
+          <tr class="hover:bg-gray-50 dark:hover:bg-gray-950/20">
+            <td class="py-2 px-3 text-center border-r border-gray-200 dark:border-gray-800 font-bold bg-gray-50/50 dark:bg-gray-950/10">{{ "i" if i == 1 else "ii" if i == 2 else "iii" }}</td>
+            <td class="py-1 px-1.5 border-r border-gray-200 dark:border-gray-800">
+              <input type="text" name="con_drug_{{i}}" placeholder="concomitant drug name" class="w-full px-2 py-1 border border-gray-200 dark:border-gray-800 rounded bg-transparent text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none">
+            </td>
+            <td class="py-1 px-1.5 border-r border-gray-200 dark:border-gray-800">
+              <input type="text" name="con_dose_{{i}}" placeholder="Dose" class="w-full px-2 py-1 border border-gray-200 dark:border-gray-800 rounded bg-transparent text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none">
+            </td>
+            <td class="py-1 px-1.5 border-r border-gray-200 dark:border-gray-800">
+              <input type="text" name="con_route_{{i}}" placeholder="Route" class="w-full px-2 py-1 border border-gray-200 dark:border-gray-800 rounded bg-transparent text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none">
+            </td>
+            <td class="py-1 px-1.5 border-r border-gray-200 dark:border-gray-800">
+              <input type="text" name="con_freq_{{i}}" placeholder="Frequency" class="w-full px-2 py-1 border border-gray-200 dark:border-gray-800 rounded bg-transparent text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none">
+            </td>
+            <td class="py-1 px-1.5 border-r border-gray-200 dark:border-gray-800">
+              <input type="text" name="con_start_{{i}}" placeholder="dd/mm/yyyy" class="w-full px-2 py-1 border border-gray-200 dark:border-gray-800 rounded bg-transparent text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none">
+            </td>
+            <td class="py-1 px-1.5 border-r border-gray-200 dark:border-gray-800">
+              <input type="text" name="con_stop_{{i}}" placeholder="dd/mm/yyyy" class="w-full px-2 py-1 border border-gray-200 dark:border-gray-800 rounded bg-transparent text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none">
+            </td>
+            <td class="py-1 px-1.5">
+              <input type="text" name="con_ind_{{i}}" placeholder="Indication" class="w-full px-2 py-1 border border-gray-200 dark:border-gray-800 rounded bg-transparent text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none">
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- GRID FOR ADDITIONAL INFO & REPORTER DETAILS -->
+  <div class="grid grid-cols-1 lg:grid-cols-12 border-b border-gray-200 dark:border-gray-800">
+    <!-- Additional Info (Cols 6) -->
+    <div class="lg:col-span-6 p-4 border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-800 flex flex-col justify-between">
+      <div>
+        <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Additional Information</label>
+        <textarea id="f_additional_info" placeholder="Enter other relevant details e.g. laboratory follow-ups, genetic information, etc..." class="w-full mt-1.5 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-white focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none flex-grow min-h-[140px]"></textarea>
+      </div>
+      <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800/50">
+        <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Signature and Name of Receiving Personnel</label>
+        <input type="text" id="f_receiving_personnel" placeholder="Signature and name of staff/officer..." class="w-full mt-1.5 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-white focus:border-red-500 focus:outline-none">
+      </div>
+    </div>
+
+    <!-- D. REPORTER DETAILS (Cols 6) -->
+    <div class="lg:col-span-6 p-0 flex flex-col">
+      <div class="bg-red-800 dark:bg-red-950 text-white font-bold px-4 py-1.5 uppercase tracking-wider text-[11px]">
+        D. Reporter Details
+      </div>
+      <div class="p-4 space-y-4 flex-grow bg-gray-50/10 dark:bg-gray-950/5">
+        <div>
+          <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">16. Name & Address</label>
+          <textarea id="f_reporter_name" placeholder="Enter reporter name and official address..." class="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-xs text-gray-800 dark:text-white focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none min-h-[60px]"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Pin Code</label>
+            <input type="text" id="f_reporter_pin" placeholder="e.g. 572102" class="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none font-semibold">
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Occupation / Designation</label>
+            <input type="text" id="f_reporter_designation" placeholder="e.g. Staff Nurse, Doctor" class="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none font-medium">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Email ID</label>
+            <input type="email" id="f_reporter_email" placeholder="e.g. reporter@gmail.com" class="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none font-medium">
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Contact No.</label>
+            <input type="tel" id="f_reporter_contact" placeholder="e.g. 8904587032" class="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-xs text-gray-800 dark:text-white focus:border-red-500 focus:outline-none font-semibold">
+          </div>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">17. Date of this report</label>
+          <input type="text" id="f_report_date" placeholder="dd/mm/yyyy" class="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-xs text-gray-800 dark:text-white focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none font-semibold">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RED CONFIDENTIALITY DISCLAIMER BANNER -->
+  <div class="bg-red-800 dark:bg-red-950/80 text-white p-4 text-[10px] sm:text-xs leading-relaxed border-t border-red-700">
+    <p class="font-bold mb-1 uppercase tracking-wide">Confidentiality Disclaimer:</p>
+    <p class="opacity-90">
+      The patient's identity is held in strict confidence and protected to the fullest extent. Submission of a report does not constitute an admission that medical personnel or manufacturer or the product caused or contributed to the reaction. Submission of an ADR report does not have any legal implication on the reporter.
+    </p>
+  </div>
+
+  <!-- SUBMISSION ACTIONS -->
+  <div class="p-6 bg-gray-50 dark:bg-gray-950/30 flex justify-center items-center">
+    <button type="button" class="gradient-bg text-white px-8 py-3.5 rounded-xl font-bold text-base shadow-lg shadow-brand-500/20 hover:-translate-y-0.5 active:translate-y-0 hover:shadow-xl hover:shadow-brand-500/30 transition-all min-h-[50px] min-w-[280px]" id="submitBtn" onclick="submitReport()">
+      🔬 Submit & Run Causality Assessment
+    </button>
+  </div>
 
 </form>
 
 <script>
+function toggleSeriousness(isSerious) {
+  const container = document.getElementById('seriousness_details_container');
+  if (isSerious) {
+    container.classList.remove('hidden');
+  } else {
+    container.classList.add('hidden');
+    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(cb => cb.checked = false);
+  }
+}
+
 // ===== OCR Pre-fill =====
 document.addEventListener('DOMContentLoaded', function() {
   const ocrData = sessionStorage.getItem('ocr_prefill');
@@ -386,7 +493,7 @@ document.addEventListener('DOMContentLoaded', function() {
     sessionStorage.removeItem('ocr_prefill');
 
     // Show banner
-    document.getElementById('ocrBanner').classList.add('active');
+    document.getElementById('ocrBanner').classList.remove('hidden');
 
     // Map OCR fields to form inputs
     const map = {
@@ -418,41 +525,58 @@ document.addEventListener('DOMContentLoaded', function() {
     // Gender mapping
     if (d.gender) {
       const g = d.gender.toLowerCase();
-      const genderSelect = document.getElementById('f_gender');
-      if (g === 'male' || g === 'm') genderSelect.value = 'M';
-      else if (g === 'female' || g === 'f') genderSelect.value = 'F';
-      else genderSelect.value = 'Other';
+      let genderVal = null;
+      if (g === 'male' || g === 'm') genderVal = 'M';
+      else if (g === 'female' || g === 'f') genderVal = 'F';
+      else genderVal = 'Other';
+
+      if (genderVal) {
+        const genderRadio = document.querySelector(`input[name="gender"][value="${genderVal}"]`);
+        if (genderRadio) genderRadio.checked = true;
+      }
     }
 
-    // Outcome
+    // Seriousness mapping
+    if (d.is_serious) {
+      document.getElementById('f_is_serious_yes').checked = true;
+      toggleSeriousness(true);
+      if (d.seriousness_death) document.getElementById('f_seriousness_death').checked = true;
+      if (d.seriousness_life_threatening) document.getElementById('f_seriousness_life_threatening').checked = true;
+      if (d.seriousness_hospitalization) document.getElementById('f_seriousness_hospitalization').checked = true;
+      if (d.seriousness_disability) document.getElementById('f_seriousness_disability').checked = true;
+      if (d.seriousness_congenital_anomaly) document.getElementById('f_seriousness_congenital_anomaly').checked = true;
+      if (d.seriousness_other) document.getElementById('f_seriousness_other').checked = true;
+    } else {
+      document.getElementById('f_is_serious_no').checked = true;
+      toggleSeriousness(false);
+    }
+
+    // Outcome mapping
     if (d.outcome) {
       const o = d.outcome.toLowerCase().replace(/\s+/g, '_');
       const outcomeSelect = document.getElementById('f_outcome');
-      for (const opt of outcomeSelect.options) {
-        if (opt.value === o) { outcomeSelect.value = o; break; }
+      if (outcomeSelect) {
+        for (const opt of outcomeSelect.options) {
+          if (opt.value === o) { outcomeSelect.value = o; break; }
+        }
       }
     }
 
-    // Action taken
+    // Action Taken & Reintroduction (for the first drug row)
     if (d.action_taken) {
       const a = d.action_taken.toLowerCase().replace(/\s+/g, '_');
-      const actionSelect = document.getElementById('f_action_taken');
-      for (const opt of actionSelect.options) {
-        if (opt.value === a) { actionSelect.value = a; break; }
-      }
+      // map to action_taken_1 radio buttons
+      const radio = document.querySelector(`input[name="action_taken_1"][value="${a}"]`);
+      if (radio) radio.checked = true;
     }
 
-    // Reintroduction
     if (d.reintroduction_result) {
-      document.getElementById('f_reintroduction_result').value = d.reintroduction_result;
+      const r = d.reintroduction_result.toLowerCase().replace(/\s+/g, '_');
+      const radio = document.querySelector(`input[name="reintroduction_1"][value="${r}"]`);
+      if (radio) radio.checked = true;
     }
 
-    // Serious
-    if (d.is_serious) {
-      document.getElementById('f_is_serious').checked = true;
-    }
-
-    // Scroll to top
+    // Scroll to top to see banner
     window.scrollTo(0, 0);
     if (typeof showToast !== 'undefined') {
       showToast('Form pre-filled from scanned image. Please review before submitting.', 'info');
@@ -468,49 +592,86 @@ async function submitReport() {
   btn.disabled = true;
   btn.textContent = '⏳ Processing...';
 
-  // Collect form data
+  // Helper to read trimmed values
   const val = id => {
     const el = document.getElementById(id);
     return el ? el.value.trim() || null : null;
   };
+  
   const checked = id => {
     const el = document.getElementById(id);
     return el ? el.checked : false;
   };
 
-  // Build medications array
+  const caseTypeEl = document.querySelector('input[name="case_type"]:checked');
+  const caseType = caseTypeEl ? caseTypeEl.value : 'initial';
+
+  const genderEl = document.querySelector('input[name="gender"]:checked');
+  const gender = genderEl ? genderEl.value : null;
+
+  // Build suspected medications array (up to 4 rows)
   const medications = [];
-  for (let i = 1; i <= 2; i++) {
+  for (let i = 1; i <= 4; i++) {
     const drugName = document.querySelector(`[name="med_drug_${i}"]`)?.value.trim();
     if (drugName) {
+      // Get selected action taken radio for this row
+      const actionEl = document.querySelector(`input[name="action_taken_${i}"]:checked`);
+      const actionTaken = actionEl ? actionEl.value : null;
+
+      // Get selected reintroduction radio for this row
+      const reintroEl = document.querySelector(`input[name="reintroduction_${i}"]:checked`);
+      const reintroResult = reintroEl ? reintroEl.value : null;
+      const reintroDose = document.querySelector(`[name="med_reintro_dose_${i}"]`)?.value.trim() || null;
+
       medications.push({
         serial_no: i,
         drug_name: drugName,
         manufacturer: document.querySelector(`[name="med_mfr_${i}"]`)?.value.trim() || null,
         batch_no: document.querySelector(`[name="med_batch_${i}"]`)?.value.trim() || null,
+        expiry_date: document.querySelector(`[name="med_exp_${i}"]`)?.value.trim() || null,
         dose: document.querySelector(`[name="med_dose_${i}"]`)?.value.trim() || null,
         route: document.querySelector(`[name="med_route_${i}"]`)?.value.trim() || null,
         frequency: document.querySelector(`[name="med_freq_${i}"]`)?.value.trim() || null,
         therapy_start_date: document.querySelector(`[name="med_start_${i}"]`)?.value.trim() || null,
         therapy_stop_date: document.querySelector(`[name="med_stop_${i}"]`)?.value.trim() || null,
         indication: document.querySelector(`[name="med_ind_${i}"]`)?.value.trim() || null,
-        action_taken: i === 1 ? val('f_action_taken') : null,
-        reintroduction_result: i === 1 ? val('f_reintroduction_result') : null,
+        action_taken: actionTaken,
+        reintroduction_result: reintroResult,
+        reintroduction_dose: reintroDose
+      });
+    }
+  }
+
+  // Build concomitant medications array (up to 3 rows)
+  const concomitant_medications = [];
+  for (let i = 1; i <= 3; i++) {
+    const drugName = document.querySelector(`[name="con_drug_${i}"]`)?.value.trim();
+    if (drugName) {
+      concomitant_medications.push({
+        serial_no: i,
+        drug_name: drugName,
+        dose: document.querySelector(`[name="con_dose_${i}"]`)?.value.trim() || null,
+        route: document.querySelector(`[name="con_route_${i}"]`)?.value.trim() || null,
+        frequency: document.querySelector(`[name="con_freq_${i}"]`)?.value.trim() || null,
+        therapy_start_date: document.querySelector(`[name="con_start_${i}"]`)?.value.trim() || null,
+        therapy_stop_date: document.querySelector(`[name="con_stop_${i}"]`)?.value.trim() || null,
+        indication: document.querySelector(`[name="con_ind_${i}"]`)?.value.trim() || null
       });
     }
   }
 
   const payload = {
+    case_type: caseType,
     patient_initials: val('f_patient_initials'),
     patient_age: val('f_patient_age'),
-    gender: val('f_gender'),
+    gender: gender,
     weight_kg: val('f_weight_kg'),
     reaction_start_date: val('f_reaction_start_date'),
     reaction_stop_date: val('f_reaction_stop_date'),
     reaction_description: val('f_reaction_description'),
     relevant_investigations: val('f_relevant_investigations'),
     medical_history: val('f_medical_history'),
-    is_serious: checked('f_is_serious'),
+    is_serious: checked('f_is_serious_yes'),
     seriousness_death: checked('f_seriousness_death'),
     seriousness_life_threatening: checked('f_seriousness_life_threatening'),
     seriousness_hospitalization: checked('f_seriousness_hospitalization'),
@@ -521,7 +682,6 @@ async function submitReport() {
     additional_info: val('f_additional_info'),
     reporter_name: val('f_reporter_name'),
     reporter_occupation: val('f_reporter_designation'),
-    reporter_address: val('f_reporter_address'),
     reporter_pin: val('f_reporter_pin'),
     reporter_email: val('f_reporter_email'),
     reporter_contact: val('f_reporter_contact'),
@@ -530,8 +690,11 @@ async function submitReport() {
     amc_report_no: val('f_amc_report_no'),
     worldwide_unique_no: val('f_worldwide_unique_no'),
     medications: medications,
-    concomitant_medications: [],
+    concomitant_medications: concomitant_medications,
+    receiving_personnel: val('f_receiving_personnel')
   };
+
+  // No required validations
 
   try {
     const res = await fetch('/api/submit-report', {

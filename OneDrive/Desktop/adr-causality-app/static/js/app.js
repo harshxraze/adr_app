@@ -4,14 +4,14 @@ function showToast(message, type = 'info') {
   const container = document.getElementById('toast-container');
   if (!container) return;
   const toast = document.createElement('div');
-  toast.className = 'toast';
-  const colors = { success: 'var(--accent-emerald)', error: 'var(--accent-rose)', info: 'var(--accent-sky)' };
+  toast.className = 'toast-anim bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-xl mb-3 min-w-[280px] max-w-[360px]';
   const icons = { success: '✅', error: '❌', info: 'ℹ️' };
-  toast.innerHTML = `<div style="display:flex;align-items:center;gap:10px;">
-    <span style="font-size:18px;">${icons[type] || icons.info}</span>
-    <span style="font-size:13px;color:var(--text-primary);">${message}</span>
+  const borderColors = { success: 'border-l-emerald-500', error: 'border-l-rose-500', info: 'border-l-sky-500' };
+  toast.classList.add('border-l-4', borderColors[type] || borderColors.info);
+  toast.innerHTML = `<div class="flex items-center gap-3">
+    <span class="text-lg">${icons[type] || icons.info}</span>
+    <span class="text-sm text-gray-800 dark:text-gray-200">${message}</span>
   </div>`;
-  toast.style.borderLeft = `3px solid ${colors[type] || colors.info}`;
   container.appendChild(toast);
   setTimeout(() => {
     toast.style.opacity = '0';
@@ -21,46 +21,74 @@ function showToast(message, type = 'info') {
   }, 4000);
 }
 
-// Mobile sidebar toggle with overlay
+// ===== Theme Toggle =====
+function initTheme() {
+  const saved = localStorage.getItem('adr-theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = saved ? saved === 'dark' : prefersDark;
+  document.documentElement.classList.toggle('dark', isDark);
+  updateThemeUI(isDark);
+}
+
+function toggleTheme() {
+  const isDark = document.documentElement.classList.toggle('dark');
+  localStorage.setItem('adr-theme', isDark ? 'dark' : 'light');
+  updateThemeUI(isDark);
+}
+
+function updateThemeUI(isDark) {
+  const icon = isDark ? '☀️' : '🌙';
+  const label = isDark ? 'Light Mode' : 'Dark Mode';
+  const el = document.getElementById('themeIcon');
+  const lbl = document.getElementById('themeLabel');
+  const mob = document.getElementById('themeIconMobile');
+  if (el) el.textContent = icon;
+  if (lbl) lbl.textContent = label;
+  if (mob) mob.textContent = icon;
+}
+
+// ===== Sidebar Toggle =====
 document.addEventListener('DOMContentLoaded', () => {
+  initTheme();
+
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('sidebarOverlay');
+  const toggle = document.getElementById('sidebarToggle');
+  const themeBtn = document.getElementById('themeToggle');
+  const themeBtnMobile = document.getElementById('themeToggleMobile');
 
-  if (window.innerWidth <= 1024) {
-    // Create hamburger toggle button
-    const toggle = document.createElement('button');
-    toggle.innerHTML = '☰';
-    toggle.id = 'sidebarToggle';
-    toggle.setAttribute('aria-label', 'Toggle menu');
-    toggle.style.cssText = 'position:fixed;top:12px;left:12px;z-index:200;background:var(--bg-card);border:1px solid var(--border-color);color:var(--text-primary);padding:10px 14px;border-radius:8px;font-size:20px;cursor:pointer;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
-    document.body.appendChild(toggle);
+  function openSidebar() {
+    sidebar.classList.remove('-translate-x-full');
+    sidebar.classList.add('translate-x-0');
+    overlay.classList.remove('hidden');
+  }
 
-    function openSidebar() {
-      sidebar.classList.add('open');
-      if (overlay) overlay.classList.add('active');
-    }
+  function closeSidebar() {
+    sidebar.classList.add('-translate-x-full');
+    sidebar.classList.remove('translate-x-0');
+    overlay.classList.add('hidden');
+  }
 
-    function closeSidebar() {
-      sidebar.classList.remove('open');
-      if (overlay) overlay.classList.remove('active');
-    }
-
+  if (toggle) {
     toggle.addEventListener('click', () => {
-      if (sidebar.classList.contains('open')) {
-        closeSidebar();
-      } else {
+      if (sidebar.classList.contains('-translate-x-full')) {
         openSidebar();
+      } else {
+        closeSidebar();
       }
     });
-
-    // Close sidebar when overlay is tapped
-    if (overlay) {
-      overlay.addEventListener('click', closeSidebar);
-    }
-
-    // Close sidebar when a nav link is clicked
-    sidebar.querySelectorAll('.nav-link').forEach(link => {
-      link.addEventListener('click', closeSidebar);
-    });
   }
+
+  if (overlay) overlay.addEventListener('click', closeSidebar);
+
+  // Close sidebar on nav link click (mobile)
+  sidebar.querySelectorAll('a').forEach(link => {
+    link.addEventListener('click', () => {
+      if (window.innerWidth < 1024) closeSidebar();
+    });
+  });
+
+  // Theme buttons
+  if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
+  if (themeBtnMobile) themeBtnMobile.addEventListener('click', toggleTheme);
 });

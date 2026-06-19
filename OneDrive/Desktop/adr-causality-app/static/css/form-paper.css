@@ -1,53 +1,168 @@
-.paper-form{width:210mm;margin:10px auto;background:#fff;color:#000;font-family:Arial,sans-serif;font-size:10px;padding:10mm;box-shadow:0 2px 20px rgba(0,0,0,.3)}
-.paper-form *{box-sizing:border-box}
-.pf-version{text-align:right;font-size:9px;margin-bottom:2px}
-.pf-header{display:flex;align-items:flex-start;gap:8px;margin-bottom:4px}
-.pf-logo{display:flex;flex-direction:column;align-items:center;min-width:55px}
-.pf-logo .ipc{font-size:20px;font-weight:700;color:#1a3a6b;margin-top:2px}
-.pf-header-text{flex:1;text-align:center}
-.pf-header-text .title{font-size:14px;font-weight:700;margin-bottom:2px}
-.pf-header-text .vol{font-size:9px}.pf-header-text .vol b{font-weight:700}
-.pf-header-text .ipc-name{font-size:9px;font-weight:700}
-.pf-header-text .ministry{font-size:8px}
-.pf-header-text .helpline{font-size:8px;font-weight:700}
-.pf-case-row{display:flex;gap:20px;font-size:9px;margin:4px 0;align-items:center}
-.cb{width:12px;height:12px;border:1px solid #333;display:inline-block;vertical-align:middle;margin:0 2px;cursor:pointer;position:relative;background:#fff}
-.cb.checked::after{content:'✓';position:absolute;top:-2px;left:1px;font-size:11px;font-weight:700}
-input.pf-input{border:none;border-bottom:1px solid #333;outline:none;font-family:Arial,sans-serif;font-size:10px;background:transparent;padding:1px 4px;color:#000}
-input.pf-input:focus{border-bottom-color:#1a3a6b;background:rgba(26,58,107,.03)}
-textarea.pf-textarea{border:1px solid #333;width:100%;font-family:Arial,sans-serif;font-size:10px;resize:none;padding:3px;background:transparent}
-textarea.pf-textarea:focus{border-color:#1a3a6b;background:rgba(26,58,107,.03)}
-select.pf-select{border:none;border-bottom:1px solid #333;font-size:9px;background:transparent;outline:none;cursor:pointer}
-.pf-section{background:#8b1a1a;color:#fff;font-weight:700;font-size:9px;padding:2px 4px;margin:4px 0 3px}
-.pf-two-col{display:grid;grid-template-columns:1fr 1fr;gap:0}
-.pf-left{border-right:1px solid #333;padding-right:4px}
-.pf-right{padding-left:4px}
-.pf-field{display:flex;gap:4px;margin-bottom:3px;align-items:center;font-size:9px}
-.pf-field label{white-space:nowrap;font-size:9px}
-.pf-field input.pf-input{flex:1}
-.pf-amc{border:1px solid #333;padding:3px;font-size:9px;margin-bottom:6px}
-.pf-amc .amc-title{font-weight:700;text-align:center;border-bottom:1px solid #333;margin-bottom:3px;padding-bottom:2px}
-.pf-seriousness{display:grid;grid-template-columns:1fr 1fr;gap:2px;font-size:9px}
-.pf-outcome{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;font-size:9px;margin-top:2px}
-.pf-table{width:100%;border-collapse:collapse;font-size:8px;margin-bottom:4px}
-.pf-table th,.pf-table td{border:1px solid #333;padding:2px 3px;vertical-align:top}
-.pf-table th{background:#f5f5f5;font-weight:700;text-align:center}
-.pf-table td input{width:100%;border:none;font-size:8px;padding:1px;background:transparent;font-family:Arial,sans-serif}
-.pf-table td input:focus{background:rgba(26,58,107,.05)}
-.pf-table td select{width:100%;border:none;font-size:8px;background:transparent;cursor:pointer}
-.pf-bottom-two{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
-.pf-sig-row{display:flex;gap:6px;margin-top:4px;border-top:1px solid #333;padding-top:3px;font-size:9px;align-items:center}
-.pf-confidentiality{background:#8b1a1a;color:#fff;font-size:8px;padding:4px 6px;margin-top:4px;line-height:1.4}
-.pf-footer{font-size:8px;margin-top:4px}
-.pf-advice{margin-top:20px}
-.pf-advice .adv-title{font-size:13px;font-weight:700;text-align:center;margin-bottom:12px;border-bottom:2px solid #333;padding-bottom:6px}
-.pf-advice h3{font-size:11px;font-weight:700;margin-bottom:4px}
-.pf-advice h4{font-size:10px;font-weight:700;margin-bottom:3px}
-.pf-advice p{font-size:9.5px;margin-bottom:3px;line-height:1.5}
-.pf-advice ul{margin-left:16px;font-size:9.5px;line-height:1.6;list-style:disc}
-.pf-advice .note{font-size:9.5px;font-weight:700;margin:5px 0;line-height:1.5}
-.pf-contact{border:1px solid #333;padding:6px 10px;margin-top:10px;text-align:center}
-.pf-contact .ct{font-size:10px;font-weight:700;margin-bottom:4px}
-.pf-contact div{font-size:9.5px;margin-bottom:2px}
-.pf-submit-bar{width:210mm;margin:12px auto;display:flex;gap:12px;justify-content:flex-end}
-@media print{.paper-form{margin:0;box-shadow:none}.pf-submit-bar,.sidebar,.main-content>div:first-child{display:none!important}}
+/* ===== IPC Paper Form Styles ===== */
+/* Renders the ADR form as a realistic paper document */
+
+.paper-form {
+  width: 100%;
+  max-width: 210mm;
+  margin: 0 auto 20px;
+  background: #fff;
+  color: #000;
+  font-family: Arial, sans-serif;
+  font-size: 10px;
+  padding: 8mm;
+  box-shadow: 0 2px 20px rgba(0,0,0,.3);
+  border-radius: 4px;
+}
+.paper-form * { box-sizing: border-box; }
+
+/* Header */
+.pf-version { text-align: right; font-size: 9px; margin-bottom: 2px; }
+.pf-header { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
+.pf-logo { display: flex; flex-direction: column; align-items: center; min-width: 55px; }
+.pf-logo .ipc { font-size: 20px; font-weight: 700; color: #1a3a6b; margin-top: 2px; }
+.pf-header-text { flex: 1; text-align: center; }
+.pf-header-text .title { font-size: 13px; font-weight: 700; margin-bottom: 2px; text-transform: uppercase; }
+.pf-header-text .vol { font-size: 9px; }
+.pf-header-text .vol b { font-weight: 700; }
+.pf-header-text .ipc-name { font-size: 9px; font-weight: 700; }
+.pf-header-text .ministry { font-size: 8px; }
+.pf-header-text .helpline { font-size: 8px; font-weight: 700; }
+
+/* Case row */
+.pf-case-row { display: flex; gap: 20px; font-size: 9px; margin: 4px 0; align-items: center; flex-wrap: wrap; }
+.cb { width: 12px; height: 12px; border: 1px solid #333; display: inline-block; vertical-align: middle; margin: 0 2px; cursor: pointer; position: relative; background: #fff; }
+.cb.checked::after { content: '✓'; position: absolute; top: -2px; left: 1px; font-size: 11px; font-weight: 700; }
+
+/* Inputs */
+input.pf-input {
+  border: none; border-bottom: 1px solid #333; outline: none;
+  font-family: Arial, sans-serif; font-size: 10px;
+  background: transparent; padding: 1px 4px; color: #000;
+  min-height: 22px;
+}
+input.pf-input:focus { border-bottom-color: #1a3a6b; background: rgba(26,58,107,.03); }
+textarea.pf-textarea {
+  border: 1px solid #333; width: 100%;
+  font-family: Arial, sans-serif; font-size: 10px;
+  resize: none; padding: 3px; background: transparent;
+}
+textarea.pf-textarea:focus { border-color: #1a3a6b; background: rgba(26,58,107,.03); }
+select.pf-select {
+  border: none; border-bottom: 1px solid #333; font-size: 9px;
+  background: transparent; outline: none; cursor: pointer;
+  min-height: 22px; color: #000;
+}
+
+/* Section headers */
+.pf-section {
+  background: #8b1a1a; color: #fff; font-weight: 700; font-size: 9px;
+  padding: 2px 4px; margin: 4px 0 3px;
+}
+
+/* Two-column layout */
+.pf-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.pf-left { border-right: 1px solid #333; padding-right: 4px; }
+.pf-right { padding-left: 4px; }
+
+/* Fields */
+.pf-field { display: flex; gap: 4px; margin-bottom: 3px; align-items: center; font-size: 9px; flex-wrap: wrap; }
+.pf-field label { white-space: nowrap; font-size: 9px; }
+.pf-field input.pf-input { flex: 1; min-width: 60px; }
+
+/* AMC Box */
+.pf-amc { border: 1px solid #333; padding: 3px; font-size: 9px; margin-bottom: 6px; }
+.pf-amc .amc-title { font-weight: 700; text-align: center; border-bottom: 1px solid #333; margin-bottom: 3px; padding-bottom: 2px; }
+
+/* Seriousness & Outcome */
+.pf-seriousness { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; font-size: 9px; }
+.pf-outcome { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; font-size: 9px; margin-top: 2px; }
+
+/* Tables */
+.pf-table { width: 100%; border-collapse: collapse; font-size: 8px; margin-bottom: 4px; }
+.pf-table th, .pf-table td { border: 1px solid #333; padding: 2px 3px; vertical-align: top; }
+.pf-table th { background: #f5f5f5; font-weight: 700; text-align: center; }
+.pf-table td input { width: 100%; border: none; font-size: 8px; padding: 1px; background: transparent; font-family: Arial, sans-serif; min-height: 20px; }
+.pf-table td input:focus { background: rgba(26,58,107,.05); }
+.pf-table td select { width: 100%; border: none; font-size: 8px; background: transparent; cursor: pointer; }
+
+/* Bottom sections */
+.pf-bottom-two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+.pf-sig-row { display: flex; gap: 6px; margin-top: 4px; border-top: 1px solid #333; padding-top: 3px; font-size: 9px; align-items: center; flex-wrap: wrap; }
+.pf-confidentiality { background: #8b1a1a; color: #fff; font-size: 8px; padding: 4px 6px; margin-top: 4px; line-height: 1.4; }
+.pf-footer { font-size: 8px; margin-top: 4px; }
+
+/* Submit bar */
+.pf-submit-bar { max-width: 210mm; margin: 12px auto; display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
+
+/* Advice section */
+.pf-advice { margin-top: 20px; }
+.pf-advice .adv-title { font-size: 13px; font-weight: 700; text-align: center; margin-bottom: 12px; border-bottom: 2px solid #333; padding-bottom: 6px; }
+.pf-advice h3 { font-size: 11px; font-weight: 700; margin-bottom: 4px; }
+.pf-advice h4 { font-size: 10px; font-weight: 700; margin-bottom: 3px; }
+.pf-advice p { font-size: 9.5px; margin-bottom: 3px; line-height: 1.5; }
+.pf-advice ul { margin-left: 16px; font-size: 9.5px; line-height: 1.6; list-style: disc; }
+.pf-advice .note { font-size: 9.5px; font-weight: 700; margin: 5px 0; line-height: 1.5; }
+.pf-contact { border: 1px solid #333; padding: 6px 10px; margin-top: 10px; text-align: center; }
+.pf-contact .ct { font-size: 10px; font-weight: 700; margin-bottom: 4px; }
+.pf-contact div { font-size: 9.5px; margin-bottom: 2px; }
+
+/* Checkbox field within paper form */
+.pf-cb-field { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; font-size: 9px; margin-right: 6px; }
+.pf-cb-field input[type="checkbox"] { width: 12px; height: 12px; accent-color: #1a3a6b; cursor: pointer; margin: 0; }
+
+/* Scrollable table wrapper for mobile */
+.pf-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; padding: 0 4px; }
+
+/* ===== MOBILE RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .paper-form {
+    width: 100%;
+    max-width: 100%;
+    padding: 4mm;
+    font-size: 11px;
+    box-shadow: none;
+    border-radius: 0;
+  }
+  .pf-header { flex-direction: column; align-items: center; gap: 4px; }
+  .pf-logo { min-width: auto; }
+  .pf-header-text .title { font-size: 12px; }
+
+  .pf-two-col { grid-template-columns: 1fr; gap: 0; }
+  .pf-left { border-right: none; padding-right: 0; border-bottom: 1px solid #ccc; padding-bottom: 6px; margin-bottom: 6px; }
+  .pf-right { padding-left: 0; }
+
+  .pf-field { font-size: 10px; }
+  .pf-field label { font-size: 10px; }
+  input.pf-input { font-size: 12px; min-height: 30px; }
+  textarea.pf-textarea { font-size: 12px; }
+  select.pf-select { font-size: 11px; min-height: 30px; }
+
+  .pf-seriousness { grid-template-columns: 1fr; }
+  .pf-outcome { grid-template-columns: 1fr 1fr; }
+
+  .pf-table { font-size: 9px; }
+  .pf-table th, .pf-table td { padding: 3px 4px; }
+  .pf-table td input { font-size: 10px; min-height: 28px; }
+
+  .pf-bottom-two { grid-template-columns: 1fr; }
+
+  .pf-submit-bar { max-width: 100%; justify-content: stretch; }
+  .pf-submit-bar .btn { flex: 1; justify-content: center; }
+
+  .pf-cb-field { font-size: 10px; margin-bottom: 2px; }
+  .pf-cb-field input[type="checkbox"] { width: 16px; height: 16px; }
+
+  .pf-confidentiality { font-size: 9px; }
+}
+
+@media (max-width: 380px) {
+  .paper-form { padding: 2mm; }
+  .pf-header-text .title { font-size: 10px; }
+  .pf-outcome { grid-template-columns: 1fr; }
+}
+
+/* Print styles */
+@media print {
+  .paper-form { margin: 0; box-shadow: none; }
+  .pf-submit-bar, .sidebar, .main-content > div:first-child { display: none !important; }
+}

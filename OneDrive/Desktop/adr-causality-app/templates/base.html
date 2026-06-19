@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
   <title>{% block title %}ADR Causality Assessment{% endblock %} | PvPI AI System</title>
   <meta name="description" content="AI-driven Adverse Drug Reaction Causality Assessment System using Naranjo and WHO-UMC scales">
   <meta name="theme-color" content="#0F6E56">
@@ -12,65 +12,134 @@
   <meta name="apple-mobile-web-app-title" content="ADR Analyzer">
   <link rel="manifest" href="/static/manifest.json">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
-  <link rel="stylesheet" href="/static/css/style.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            brand: { 50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',300:'#a5b4fc',400:'#818cf8',500:'#6366f1',600:'#4f46e5',700:'#4338ca' },
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    /* Minimal custom styles that complement Tailwind */
+    body { font-family: 'Inter', system-ui, sans-serif; }
+    .gradient-text { background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .gradient-bg { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+    .gradient-success { background: linear-gradient(135deg, #10b981, #34d399); }
+    .gradient-danger { background: linear-gradient(135deg, #ef4444, #f43f5e); }
+    .gradient-warning { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .toast-anim { animation: slideIn 0.3s ease-out; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin 0.8s linear infinite; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    .fade-in { animation: fadeIn 0.5s ease-out; }
+    /* Scrollbar styling for dark mode */
+    .dark ::-webkit-scrollbar { width: 8px; height: 8px; }
+    .dark ::-webkit-scrollbar-track { background: #111827; }
+    .dark ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+    .dark ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+  </style>
   {% block head %}{% endblock %}
 </head>
-<body>
-  <div class="app-container">
+<body class="bg-gray-50 text-gray-900 dark:bg-[#0a0e1a] dark:text-gray-100 min-h-screen overflow-x-hidden transition-colors duration-300">
+  <div class="flex min-h-screen w-full overflow-x-hidden">
+
     <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-brand">
-        <div class="brand-icon">⚕</div>
-        <div class="brand-text">
-          <h2>ADR-AI</h2>
-          <span>Causality System</span>
+    <aside id="sidebar" class="fixed top-0 left-0 h-full w-64 z-50 flex flex-col
+      bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700/50
+      transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+
+      <!-- Brand -->
+      <div class="flex items-center gap-3 px-5 py-5 mb-4">
+        <div class="w-10 h-10 gradient-bg rounded-lg flex items-center justify-center text-white text-xl flex-shrink-0">⚕</div>
+        <div>
+          <h2 class="text-base font-bold text-gray-900 dark:text-white">ADR-AI</h2>
+          <span class="text-xs text-gray-500 dark:text-gray-500">Causality System</span>
         </div>
       </div>
-      <nav class="sidebar-nav">
-        <div class="nav-section">
-          <div class="nav-section-title">Overview</div>
-          <a href="/" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
-            <span class="icon">📊</span> Dashboard
+
+      <!-- Navigation -->
+      <nav class="flex-1 px-3 space-y-6 overflow-y-auto">
+        <div>
+          <p class="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600">Overview</p>
+          <a href="/" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium min-h-[44px] transition-colors
+            {% if request.endpoint == 'index' %}bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 border-l-[3px] border-brand-500{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+            <span class="text-lg w-6 text-center">📊</span> Dashboard
           </a>
         </div>
-        <div class="nav-section">
-          <div class="nav-section-title">Reporting</div>
-          <a href="/capture" class="nav-link {% if request.endpoint == 'capture' %}active{% endif %}">
-            <span class="icon">📷</span> Scan Form
+        <div>
+          <p class="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600">Reporting</p>
+          <a href="/capture" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium min-h-[44px] transition-colors
+            {% if request.endpoint == 'capture' %}bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 border-l-[3px] border-brand-500{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+            <span class="text-lg w-6 text-center">📷</span> Scan Form
           </a>
-          <a href="/form" class="nav-link {% if request.endpoint == 'adr_form' %}active{% endif %}">
-            <span class="icon">📝</span> New ADR Report
+          <a href="/form" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium min-h-[44px] transition-colors
+            {% if request.endpoint == 'adr_form' %}bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 border-l-[3px] border-brand-500{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+            <span class="text-lg w-6 text-center">📝</span> New ADR Report
           </a>
-          <a href="/reports" class="nav-link {% if request.endpoint == 'reports_list' %}active{% endif %}">
-            <span class="icon">📋</span> View Reports
-          </a>
-        </div>
-        <div class="nav-section">
-          <div class="nav-section-title">Assessment</div>
-          <a href="/naranjo" class="nav-link {% if request.endpoint == 'naranjo_page' %}active{% endif %}">
-            <span class="icon">🧮</span> Naranjo Scale
+          <a href="/reports" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium min-h-[44px] transition-colors
+            {% if request.endpoint == 'reports_list' %}bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 border-l-[3px] border-brand-500{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+            <span class="text-lg w-6 text-center">📋</span> View Reports
           </a>
         </div>
-        <div class="nav-section">
-          <div class="nav-section-title">Analytics</div>
-          <a href="/analytics" class="nav-link {% if request.endpoint == 'analytics' %}active{% endif %}">
-            <span class="icon">📈</span> Analytics
+        <div>
+          <p class="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600">Assessment</p>
+          <a href="/naranjo" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium min-h-[44px] transition-colors
+            {% if request.endpoint == 'naranjo_page' %}bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 border-l-[3px] border-brand-500{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+            <span class="text-lg w-6 text-center">🧮</span> Naranjo Scale
+          </a>
+        </div>
+        <div>
+          <p class="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600">Analytics</p>
+          <a href="/analytics" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium min-h-[44px] transition-colors
+            {% if request.endpoint == 'analytics' %}bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 border-l-[3px] border-brand-500{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
+            <span class="text-lg w-6 text-center">📈</span> Analytics
           </a>
         </div>
       </nav>
-      <div class="sidebar-footer">ADR Causality Analyzer v2.0<br>IPC – Govt. of India</div>
+
+      <!-- Theme toggle + footer -->
+      <div class="px-4 py-4 border-t border-gray-200 dark:border-gray-700/50">
+        <button id="themeToggle" class="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium
+          bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors min-h-[44px]">
+          <span id="themeIcon">🌙</span>
+          <span id="themeLabel">Dark Mode</span>
+        </button>
+        <p class="text-center text-[11px] text-gray-400 dark:text-gray-600 mt-3">ADR Causality Analyzer v2.0<br>IPC – Govt. of India</p>
+      </div>
     </aside>
 
     <!-- Sidebar overlay for mobile -->
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 hidden lg:hidden"></div>
 
     <!-- Main Content -->
-    <main class="main-content">
-      <div id="toast-container" class="toast-container"></div>
-      {% block content %}{% endblock %}
+    <main class="flex-1 lg:ml-64 min-h-screen w-full overflow-x-hidden">
+      <!-- Mobile top bar -->
+      <div class="lg:hidden fixed top-0 left-0 right-0 z-30 h-14 bg-white/80 dark:bg-[#0a0e1a]/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700/50 flex items-center px-4">
+        <button id="sidebarToggle" aria-label="Toggle menu" class="w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xl">☰</button>
+        <span class="ml-3 font-bold text-sm gradient-text">ADR-AI</span>
+        <button id="themeToggleMobile" class="ml-auto w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-lg">
+          <span id="themeIconMobile">🌙</span>
+        </button>
+      </div>
+
+      <div class="pt-16 lg:pt-0 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+        <div id="toast-container" class="fixed top-4 right-4 z-[9999] max-w-[calc(100vw-2rem)]"></div>
+        {% block content %}{% endblock %}
+      </div>
     </main>
   </div>
+
   <script src="/static/js/app.js"></script>
   {% block scripts %}{% endblock %}
 

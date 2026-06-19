@@ -1,47 +1,75 @@
 {% extends "base.html" %}
 {% block title %}Naranjo Scale{% endblock %}
 {% block content %}
-<div class="page-header"><div><h1>🧮 Naranjo Scale Calculator</h1><p>ADR Probability Scale – Answer 10 questions to assess causality</p></div></div>
-<div class="naranjo-layout">
-  <div class="card">
-    <div id="naranjoQuestions">
-    {% for q in questions %}
-      <div class="naranjo-question">
-        <p><strong>Q{{q.id}}.</strong> {{q.question}}</p>
-        <div class="radio-group">
-          <label class="radio-label"><input type="radio" name="nq_{{q.id}}" value="yes" onchange="calcNaranjo()"> Yes (+{{q.yes}})</label>
-          <label class="radio-label"><input type="radio" name="nq_{{q.id}}" value="no" onchange="calcNaranjo()"> No ({{q.no}})</label>
-          <label class="radio-label"><input type="radio" name="nq_{{q.id}}" value="unknown" checked onchange="calcNaranjo()"> Don't Know (0)</label>
+<div class="mb-8">
+  <h1 class="text-2xl sm:text-3xl font-extrabold gradient-text">🧮 Naranjo Scale Calculator</h1>
+  <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">ADR Probability Scale – Answer 10 questions to assess causality</p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <!-- Questions Column -->
+  <div class="lg:col-span-2 space-y-4">
+    <div class="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5">
+      <div id="naranjoQuestions" class="space-y-4">
+      {% for q in questions %}
+        <div class="border border-gray-100 dark:border-gray-800 rounded-xl p-4 bg-gray-50/50 dark:bg-gray-900/30 hover:border-brand-300 dark:hover:border-brand-500/20 transition-all">
+          <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">
+            <span class="text-brand-500 mr-1">Q{{q.id}}.</span> {{q.question}}
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 hover:border-brand-500 transition-colors min-h-[44px]">
+              <input type="radio" name="nq_{{q.id}}" value="yes" onchange="calcNaranjo()" class="w-4 h-4 text-brand-600 focus:ring-brand-500">
+              <span>Yes (+{{q.yes}})</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 hover:border-brand-500 transition-colors min-h-[44px]">
+              <input type="radio" name="nq_{{q.id}}" value="no" onchange="calcNaranjo()" class="w-4 h-4 text-brand-600 focus:ring-brand-500">
+              <span>No ({{q.no}})</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 hover:border-brand-500 transition-colors min-h-[44px]">
+              <input type="radio" name="nq_{{q.id}}" value="unknown" checked onchange="calcNaranjo()" class="w-4 h-4 text-brand-600 focus:ring-brand-500">
+              <span>Don't Know (0)</span>
+            </label>
+          </div>
         </div>
+      {% endfor %}
       </div>
-    {% endfor %}
     </div>
   </div>
-  <div>
-    <div class="card" style="position:sticky;top:32px;">
-      <div class="naranjo-score-display">
-        <div class="score" id="naranjoScoreVal" style="color:var(--accent-indigo);">0</div>
-        <div class="category" id="naranjoCatVal">Doubtful</div>
-        <p style="color:var(--text-muted);margin-top:12px;font-size:13px;">Total Naranjo Score</p>
+
+  <!-- Score Column -->
+  <div class="lg:col-span-1">
+    <div class="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 lg:sticky lg:top-8">
+      <div class="text-center py-6 bg-gray-50/50 dark:bg-gray-900/30 rounded-xl border border-gray-100 dark:border-gray-800 mb-6">
+        <div class="text-6xl font-black text-rose-500 transition-all duration-300" id="naranjoScoreVal">0</div>
+        <div class="text-xl font-bold text-rose-500 mt-2 transition-all duration-300" id="naranjoCatVal">Doubtful</div>
+        <p class="text-xs text-gray-400 dark:text-gray-500 mt-3 font-semibold uppercase tracking-wider">Total Naranjo Score</p>
       </div>
-      <div style="margin-top:20px;font-size:13px;color:var(--text-secondary);">
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-color);"><span>≥ 9</span><span class="badge badge-definite">Definite</span></div>
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-color);"><span>5 – 8</span><span class="badge badge-probable">Probable</span></div>
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-color);"><span>1 – 4</span><span class="badge badge-possible">Possible</span></div>
-        <div style="display:flex;justify-content:space-between;padding:6px 0;"><span>≤ 0</span><span class="badge badge-doubtful">Doubtful</span></div>
+      
+      <!-- Scoring Guide -->
+      <div class="space-y-2 text-xs font-semibold text-gray-700 dark:text-gray-300">
+        <div class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-800">
+          <span>≥ 9</span>
+          <span class="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">Definite</span>
+        </div>
+        <div class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-800">
+          <span>5 – 8</span>
+          <span class="px-2 py-0.5 rounded-full bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400">Probable</span>
+        </div>
+        <div class="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-800">
+          <span>1 – 4</span>
+          <span class="px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400">Possible</span>
+        </div>
+        <div class="flex justify-between items-center py-2">
+          <span>≤ 0</span>
+          <span class="px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400">Doubtful</span>
+        </div>
       </div>
     </div>
   </div>
 </div>
+{% endblock %}
 
-<style>
-  .naranjo-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
-  @media (max-width: 768px) {
-    .naranjo-layout { grid-template-columns: 1fr; }
-    .naranjo-layout > div:last-child .card { position: static !important; }
-  }
-</style>
-
+{% block scripts %}
 <script>
 const SCORES = {{ questions|tojson }};
 function calcNaranjo() {
@@ -50,14 +78,32 @@ function calcNaranjo() {
     const sel = document.querySelector('input[name="nq_'+q.id+'"]:checked');
     if (sel) total += q[sel.value] || 0;
   });
-  document.getElementById('naranjoScoreVal').textContent = total;
-  let cat = 'Doubtful', color = 'var(--accent-rose)';
-  if (total >= 9) { cat = 'Definite'; color = 'var(--accent-emerald)'; }
-  else if (total >= 5) { cat = 'Probable'; color = 'var(--accent-sky)'; }
-  else if (total >= 1) { cat = 'Possible'; color = 'var(--accent-amber)'; }
-  document.getElementById('naranjoCatVal').textContent = cat;
-  document.getElementById('naranjoScoreVal').style.color = color;
-  document.getElementById('naranjoCatVal').style.color = color;
+  
+  const scoreVal = document.getElementById('naranjoScoreVal');
+  const catVal = document.getElementById('naranjoCatVal');
+  
+  scoreVal.textContent = total;
+  
+  let cat = 'Doubtful';
+  let colorClass = 'text-rose-500';
+  
+  if (total >= 9) {
+    cat = 'Definite';
+    colorClass = 'text-emerald-500';
+  } else if (total >= 5) {
+    cat = 'Probable';
+    colorClass = 'text-sky-500';
+  } else if (total >= 1) {
+    cat = 'Possible';
+    colorClass = 'text-amber-500';
+  }
+  
+  // Update category text
+  catVal.textContent = cat;
+  
+  // Reset classes and apply the correct color
+  scoreVal.className = 'text-6xl font-black transition-all duration-300 ' + colorClass;
+  catVal.className = 'text-xl font-bold mt-2 transition-all duration-300 ' + colorClass;
 }
 </script>
 {% endblock %}
