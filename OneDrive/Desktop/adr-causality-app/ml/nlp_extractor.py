@@ -125,7 +125,11 @@ Your output must be a valid JSON object. Return ONLY the raw JSON, with no markd
 """
             response = gemini_client.models.generate_content(
                 model='gemini-2.5-flash',
-                contents=prompt
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.0,
+                    response_mime_type="application/json"
+                )
             )
             text = response.text.strip()
             # Clean up markdown formatting if returned
@@ -149,7 +153,8 @@ Your output must be a valid JSON object. Return ONLY the raw JSON, with no markd
                 "temporal_relationship": str(nlp_result.get("temporal_relationship", "unknown")).lower().strip(),
                 "naranjo_answers": naranjo
             }
-        except Exception:
+        except Exception as e:
+            print(f"[Causality NLP] Gemini API error: {e}. Falling back to local clinical regex parser.")
             pass
 
     # Regex heuristic fallback if Gemini failed or is not configured
@@ -187,7 +192,8 @@ def _extract_regex_fallbacks(description_text: str, target_drug_name: str, other
             
     # Pharmacologically definitive signals
     definitive_patterns = [
-        r"\b(anaphylaxis|anaphylactic|sjs|stevens-johnson|toxic\s+epidermal\s+necrolysis|ten|angioedema|drug-induced\s+liver\s+injury|dili|biopsy\s+confirmed)\b"
+        r"\b(anaphylaxis|anaphylactic|sjs|stevens-johnson|toxic\s+epidermal\s+necrolysis|ten|angioedema|drug-induced\s+liver\s+injury|dili|biopsy\s+confirmed|hypersensitivity)\b",
+        r"(\w*test'?\s+dose)"
     ]
     for pattern in definitive_patterns:
         if re.search(pattern, text_lower):
@@ -213,7 +219,7 @@ def _extract_regex_fallbacks(description_text: str, target_drug_name: str, other
         alternative_is_more_likely = True
 
     # Heuristics for temporal relationship
-    if re.search(r"\b(immediate|same day|within\s+(a\s+)?day|within\s+24\s+hours|1\s+day\s+later|2\s+days\s+later|two\s+days\s+later)\b", text_lower):
+    if re.search(r"\b(immediate|same day|within\s+(a\s+)?day|within\s+24\s+hours|1\s+day\s+later|2\s+days\s+later|two\s+days\s+later|soon\s+after|shortly\s+after|immediately\s+after|within\s+\d+\s+(min|minute|hour)|within\s+minutes)\b", text_lower):
         temporal_relationship = 'plausible'
     elif re.search(r"\b(before\s+starting|prior\s+to\s+taking|before\s+taking)\b", text_lower):
         temporal_relationship = 'improbable'

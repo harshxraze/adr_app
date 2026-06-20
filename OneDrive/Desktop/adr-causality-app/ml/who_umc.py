@@ -261,7 +261,8 @@ def run_assessment(form_data: dict, target_drug_name: str) -> dict:
     description_text = form_data.get("reaction_description") or ""
     medical_history = form_data.get("medical_history") or ""
     additional_info = form_data.get("additional_info") or ""
-    full_text = f"Description: {description_text}. Medical History: {medical_history}. Additional Info: {additional_info}"
+    relevant_investigations = form_data.get("relevant_investigations") or ""
+    full_text = f"Description: {description_text}. Investigations: {relevant_investigations}. Medical History: {medical_history}. Additional Info: {additional_info}"
     
     suspect_drug_names = [d.get("drug_name", "") for d in suspect_drugs if d.get("drug_name")]
     other_drug_names = tuple(name for name in suspect_drug_names if name.lower() != target_drug_name.lower())
