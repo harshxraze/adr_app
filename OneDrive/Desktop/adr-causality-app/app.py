@@ -31,7 +31,7 @@ from config import Config
 from database import db, init_db
 from database.models import ADRReport, SuspectedMedication, ConcomitantMedication, ModelTrainingLog
 from ml.naranjo import calculate_naranjo_score, NARANJO_QUESTIONS, extract_naranjo_features_from_report
-from ml.who_umc import assess_who_umc, WHO_UMC_CATEGORIES
+from ml.who_umc import assess_who_umc, assess_from_api_payload, WHO_UMC_CATEGORIES, run_assessment
 
 # Configure Gemini (new google.genai SDK)
 try:
@@ -194,22 +194,65 @@ def submit_report():
             )
             report.concomitant_medications.append(con)
 
-        # Auto-assess causality using WHO-UMC
-        report_dict = data.copy()
-        who_result = assess_who_umc(report_dict)
-        report.who_umc_category = who_result['category']
+        # Auto-assess causality for each medication individually and save per-drug details
+        severity_order = [
+            "Certain",
+            "Probable/Likely",
+            "Possible",
+            "Unlikely",
+            "Conditional/Unclassified",
+            "Unassessable/Unclassifiable",
+        ]
+        naranjo_order = ["Definite", "Probable", "Possible", "Doubtful"]
 
-        # Auto-assess using Naranjo (if answers provided)
-        if data.get('naranjo_answers'):
-            naranjo_result = calculate_naranjo_score(data['naranjo_answers'])
-            report.naranjo_score = naranjo_result['score']
-            report.naranjo_category = naranjo_result['category']
-        else:
-            # Try to auto-extract Naranjo features
-            auto_answers = extract_naranjo_features_from_report(report_dict)
-            naranjo_result = calculate_naranjo_score(auto_answers)
-            report.naranjo_score = naranjo_result['score']
-            report.naranjo_category = naranjo_result['category']
+        best_who_category = "Unassessable/Unclassifiable"
+        best_who_rank = len(severity_order)
+        
+        best_naranjo_score = -10
+        best_naranjo_category = "Doubtful"
+        best_naranjo_rank = len(naranjo_order)
+
+        report_dict = data.copy()
+
+        for idx, med in enumerate(report.medications):
+            if not med.drug_name:
+                continue
+            
+            # 1. WHO-UMC causality
+            who_res = run_assessment(report_dict, med.drug_name)
+            who_cat = who_res.get('category', 'Unassessable/Unclassifiable')
+            
+            # 2. Naranjo causality
+            if idx == 0 and data.get('naranjo_answers'):
+                naranjo_answers = data.get('naranjo_answers')
+            else:
+                naranjo_answers = extract_naranjo_features_from_report(report_dict, med.drug_name)
+                
+            naranjo_res = calculate_naranjo_score(naranjo_answers)
+            n_cat = naranjo_res.get('category', 'Doubtful')
+            n_score = naranjo_res.get('score', 0)
+            
+            # Save on SuspectedMedication model
+            med.causality_assessment = f"WHO-UMC: {who_cat} | Naranjo: {n_cat} (Score: {n_score})"
+            
+            # Track best/worst-case WHO-UMC
+            who_rank = severity_order.index(who_cat) if who_cat in severity_order else len(severity_order)
+            if who_rank < best_who_rank:
+                best_who_rank = who_rank
+                best_who_category = who_cat
+                
+            # Track best/worst-case Naranjo
+            n_rank = naranjo_order.index(n_cat) if n_cat in naranjo_order else len(naranjo_order)
+            if n_rank < best_naranjo_rank:
+                best_naranjo_rank = n_rank
+                best_naranjo_category = n_cat
+            if n_score > best_naranjo_score:
+                best_naranjo_score = n_score
+
+        # Save the worst-case summary on the report level
+        report.who_umc_category = best_who_category
+        report.naranjo_score = best_naranjo_score if best_naranjo_score != -10 else None
+        report.naranjo_category = best_naranjo_category
 
         db.session.add(report)
         db.session.commit()
@@ -316,31 +359,80 @@ def parse_adr_fields_from_image_with_gemini(image_bytes):
     """
     prompt = """
 You are analyzing an image of an IPC ADR (Adverse Drug Reaction) reporting form.
-Read the form contents, perform OCR, extract the following fields, and return ONLY a valid JSON object. No explanation, no markdown, no extra text.
-If a field is not found, use null.
+Read the form contents carefully, perform OCR, extract ALL fields, and return ONLY a valid JSON object. No explanation, no markdown, no extra text.
+If a field is not found, use null. Read handwritten text carefully.
+
+IMPORTANT: The form may contain MULTIPLE suspected medications (up to 4 rows in Section C).
+Extract ALL of them as an array in the "medications" field.
 
 Fields to extract:
-- patient_initials (string)
-- patient_age (string, e.g. "45")
-- gender (string: "male", "female", or "other")
-- weight_kg (number or null)
-- reaction_description (string — describe the adverse reaction)
-- drug_name (string — name of suspected drug)
-- dose (string — dosage)
-- route (string — route of administration, e.g. oral, IV)
-- reaction_start_date (string — date reaction started, any format found)
-- reaction_stop_date (string — date reaction stopped, if found)
-- therapy_start_date (string — date drug therapy started)
-- therapy_stop_date (string — date drug therapy stopped, if found)
-- action_taken (string — one of: drug_withdrawn, dose_reduced, not_changed, unknown)
-- outcome (string — one of: recovered, recovering, not_recovered, fatal, unknown)
-- is_serious (boolean — true if the reaction is described as serious, life-threatening, hospitalization, or death)
-- reintroduction_result (string — "yes" if drug was reintroduced and reaction recurred, "no" if reintroduced without recurrence, else null)
-- relevant_investigations (string or null — any lab tests or investigations mentioned)
-- medical_history (string or null — relevant medical history)
-- reporter_name (string or null)
-- reporter_designation (string or null)
-- additional_info (string or null)
+
+TOP SECTION:
+- case_type (string — "initial" if Initial Case is ticked, "follow_up" if Follow-up Case is ticked)
+- reg_no (string or null — Reg. No. / IPD / OPD / CR No. from the AMC/NCC section)
+- amc_report_no (string or null — AMC Report No.)
+- worldwide_unique_no (string or null — Worldwide Unique No.)
+
+A. PATIENT INFORMATION:
+- patient_initials (string — field 1)
+- patient_age (string, e.g. "35 Years" — field 2)
+- gender (string: "male", "female", or "other" — field 3)
+- weight_kg (number or null — field 4)
+
+B. SUSPECTED ADVERSE REACTION:
+- reaction_start_date (string — field 5, in DD/MM/YYYY format)
+- reaction_stop_date (string — field 6, in DD/MM/YYYY format)
+- reaction_description (string — field 7, transcribe the FULL handwritten text exactly as written)
+- relevant_investigations (string or null — field 12)
+- medical_history (string or null — field 13, transcribe full handwritten text)
+- is_serious (boolean — field 14, true if "Yes" is ticked)
+- seriousness_death (boolean — true if "Death" is ticked in field 14)
+- seriousness_death_date (string or null — death date if mentioned, DD/MM/YYYY)
+- seriousness_life_threatening (boolean — true if "Life threatening" is ticked)
+- seriousness_hospitalization (boolean — true if "Hospitalization/Prolonged" is ticked)
+- seriousness_disability (boolean — true if "Disability" is ticked)
+- seriousness_congenital_anomaly (boolean — true if "Congenital anomaly" is ticked)
+- seriousness_other (boolean — true if "Other Medically important" is ticked)
+- outcome (string — field 15: one of "recovered", "recovering", "not_recovered", "fatal", "recovered_with_sequelae", "unknown")
+
+C. SUSPECTED MEDICATION(S):
+- medications (array of objects — extract ALL filled rows from field 8 table. Each object must have):
+    - drug_name (string — brand or generic name, column 8)
+    - manufacturer (string or null — "Manufacturer" column)
+    - batch_no (string or null — "Batch No. / Lot No." column)
+    - expiry_date (string or null — "Expiry Date" column)
+    - dose (string — e.g. "200mg", "40mg", "5mg")
+    - route (string — e.g. "ORAL", "IV", "IM")
+    - frequency (string — e.g. "OD", "BD", "TDS", "Once daily")
+    - therapy_start_date (string or null — "Date Started" column, DD/MM/YYYY)
+    - therapy_stop_date (string or null — "Date Stopped" column, DD/MM/YYYY)
+    - indication (string or null — "Indication" column, e.g. "POST OP", "PROPHYLAXIS")
+    - action_taken (string or null — from field 9 table for this row: one of "drug_withdrawn", "dose_increased", "dose_reduced", "dose_not_changed", "not_applicable", "unknown")
+    - reintroduction_result (string or null — from field 10 table for this row: "yes" if reaction reappeared, "no" if no recurrence, "effect_unknown" if effect unknown)
+    - reintroduction_dose (string or null — dose if re-introduced, from field 10)
+
+FIELD 11 - CONCOMITANT MEDICATIONS:
+- concomitant_medications (array of objects or null — from field 11 table, each with):
+    - drug_name (string)
+    - dose (string or null)
+    - route (string or null)
+    - frequency (string or null)
+    - therapy_start_date (string or null)
+    - therapy_stop_date (string or null)
+    - indication (string or null)
+
+ADDITIONAL INFO & SIGNATURES:
+- additional_info (string or null — "Additional Information" section)
+- receiving_personnel (string or null — "Signature and Name of Receiving Personnel")
+
+D. REPORTER DETAILS:
+- reporter_name (string or null — name from field 16)
+- reporter_address (string or null — address from field 16, including institution/hospital name)
+- reporter_pin (string or null — Pin Code)
+- reporter_designation (string or null — Occupation/Designation)
+- reporter_email (string or null — Email ID)
+- reporter_contact (string or null — Contact No.)
+- report_date (string or null — field 17, DD/MM/YYYY)
 """
     image_part = types.Part.from_bytes(
         data=image_bytes,

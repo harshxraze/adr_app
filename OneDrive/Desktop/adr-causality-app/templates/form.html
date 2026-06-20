@@ -495,31 +495,131 @@ document.addEventListener('DOMContentLoaded', function() {
     // Show banner
     document.getElementById('ocrBanner').classList.remove('hidden');
 
-    // Map OCR fields to form inputs
+    // Combine reporter name + address for the "Name & Address" textarea
+    let reporterNameAndAddress = '';
+    if (d.reporter_name) reporterNameAndAddress += d.reporter_name;
+    if (d.reporter_address) {
+      if (reporterNameAndAddress) reporterNameAndAddress += '\n';
+      reporterNameAndAddress += d.reporter_address;
+    }
+
+    // Map simple OCR fields to form inputs
     const map = {
+      'f_reg_no': d.reg_no,
+      'f_amc_report_no': d.amc_report_no,
+      'f_worldwide_unique_no': d.worldwide_unique_no,
       'f_patient_initials': d.patient_initials,
       'f_patient_age': d.patient_age,
       'f_weight_kg': d.weight_kg,
       'f_reaction_description': d.reaction_description,
       'f_reaction_start_date': d.reaction_start_date,
       'f_reaction_stop_date': d.reaction_stop_date,
-      'f_drug_name': d.drug_name,
-      'f_dose': d.dose,
-      'f_route': d.route,
-      'f_therapy_start': d.therapy_start_date,
-      'f_therapy_stop': d.therapy_stop_date,
       'f_relevant_investigations': d.relevant_investigations,
       'f_medical_history': d.medical_history,
-      'f_reporter_name': d.reporter_name,
+      'f_reporter_name': reporterNameAndAddress || null,
       'f_reporter_designation': d.reporter_designation,
+      'f_reporter_pin': d.reporter_pin,
+      'f_reporter_email': d.reporter_email,
+      'f_reporter_contact': d.reporter_contact,
+      'f_report_date': d.report_date,
       'f_additional_info': d.additional_info,
+      'f_receiving_personnel': d.receiving_personnel,
     };
 
     for (const [id, val] of Object.entries(map)) {
-      if (val != null) {
+      if (val != null && val !== '') {
         const el = document.getElementById(id);
         if (el) el.value = val;
       }
+    }
+
+    // --- Case type radio ---
+    if (d.case_type) {
+      const ct = d.case_type.toLowerCase();
+      if (ct === 'initial') {
+        const r = document.getElementById('case_type_initial');
+        if (r) r.checked = true;
+      } else if (ct === 'follow_up' || ct === 'follow-up' || ct === 'followup') {
+        const r = document.getElementById('case_type_follow');
+        if (r) r.checked = true;
+      }
+    }
+
+    // --- Medications array (up to 4 rows) ---
+    const meds = d.medications || [];
+    // Backwards compat: if old OCR returned flat drug_name, wrap it
+    if (meds.length === 0 && d.drug_name) {
+      meds.push({
+        drug_name: d.drug_name,
+        dose: d.dose,
+        route: d.route,
+        therapy_start_date: d.therapy_start_date,
+        therapy_stop_date: d.therapy_stop_date,
+        action_taken: d.action_taken,
+        reintroduction_result: d.reintroduction_result,
+      });
+    }
+
+    for (let i = 0; i < Math.min(meds.length, 4); i++) {
+      const m = meds[i];
+      const row = i + 1; // form uses 1-indexed names
+
+      const setByName = (name, val) => {
+        if (val != null && val !== '') {
+          const el = document.querySelector(`[name="${name}"]`);
+          if (el) el.value = val;
+        }
+      };
+
+      setByName(`med_drug_${row}`, m.drug_name);
+      setByName(`med_mfr_${row}`, m.manufacturer);
+      setByName(`med_batch_${row}`, m.batch_no);
+      setByName(`med_exp_${row}`, m.expiry_date);
+      setByName(`med_dose_${row}`, m.dose);
+      setByName(`med_route_${row}`, m.route);
+      setByName(`med_freq_${row}`, m.frequency);
+      setByName(`med_start_${row}`, m.therapy_start_date);
+      setByName(`med_stop_${row}`, m.therapy_stop_date);
+      setByName(`med_ind_${row}`, m.indication);
+
+      // Action taken radio buttons (field 9)
+      if (m.action_taken) {
+        const actionVal = m.action_taken.toLowerCase().replace(/\s+/g, '_');
+        const radio = document.querySelector(`input[name="action_taken_${row}"][value="${actionVal}"]`);
+        if (radio) radio.checked = true;
+      }
+
+      // Reintroduction radio buttons (field 10)
+      if (m.reintroduction_result) {
+        const reintroVal = m.reintroduction_result.toLowerCase().replace(/\s+/g, '_');
+        const radio = document.querySelector(`input[name="reintroduction_${row}"][value="${reintroVal}"]`);
+        if (radio) radio.checked = true;
+      }
+
+      // Reintroduction dose
+      if (m.reintroduction_dose) {
+        setByName(`med_reintro_dose_${row}`, m.reintroduction_dose);
+      }
+    }
+
+    // --- Concomitant medications (up to 3 rows) ---
+    const conMeds = d.concomitant_medications || [];
+    for (let i = 0; i < Math.min(conMeds.length, 3); i++) {
+      const c = conMeds[i];
+      const row = i + 1;
+      const setByName = (name, val) => {
+        if (val != null && val !== '') {
+          const el = document.querySelector(`[name="${name}"]`);
+          if (el) el.value = val;
+        }
+      };
+      setByName(`con_drug_${row}`, c.drug_name || c.name);
+      setByName(`con_dose_${row}`, c.dose);
+      setByName(`con_route_${row}`, c.route);
+      setByName(`con_freq_${row}`, c.frequency);
+      setByName(`con_start_${row}`, c.therapy_start_date);
+      setByName(`con_stop_${row}`, c.therapy_stop_date);
+      setByName(`con_ind_${row}`, c.indication);
     }
 
     // Gender mapping
@@ -560,20 +660,6 @@ document.addEventListener('DOMContentLoaded', function() {
           if (opt.value === o) { outcomeSelect.value = o; break; }
         }
       }
-    }
-
-    // Action Taken & Reintroduction (for the first drug row)
-    if (d.action_taken) {
-      const a = d.action_taken.toLowerCase().replace(/\s+/g, '_');
-      // map to action_taken_1 radio buttons
-      const radio = document.querySelector(`input[name="action_taken_1"][value="${a}"]`);
-      if (radio) radio.checked = true;
-    }
-
-    if (d.reintroduction_result) {
-      const r = d.reintroduction_result.toLowerCase().replace(/\s+/g, '_');
-      const radio = document.querySelector(`input[name="reintroduction_1"][value="${r}"]`);
-      if (radio) radio.checked = true;
     }
 
     // Scroll to top to see banner
