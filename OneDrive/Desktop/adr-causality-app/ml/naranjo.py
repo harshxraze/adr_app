@@ -134,7 +134,8 @@ def extract_naranjo_features_from_report(report_data: dict, target_drug_name: Op
     description_text = report_data.get('reaction_description') or ""
     medical_history = report_data.get('medical_history') or ""
     additional_info = report_data.get('additional_info') or ""
-    full_text = f"Description: {description_text}. Medical History: {medical_history}. Additional Info: {additional_info}"
+    relevant_investigations = report_data.get('relevant_investigations') or ""
+    full_text = f"Description: {description_text}. Investigations: {relevant_investigations}. Medical History: {medical_history}. Additional Info: {additional_info}"
 
     # Identify other suspected medications to pass to cached NLP extractor
     suspect_drug_names = [m.get('drug_name', '') for m in medications if m.get('drug_name')]

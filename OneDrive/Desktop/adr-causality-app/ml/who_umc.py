@@ -92,7 +92,8 @@ def assess_who_umc(form_payload: dict, nlp_context: Optional[dict] = None, targe
         description_text = form_payload.get("reaction_description") or ""
         medical_history = form_payload.get("medical_history") or ""
         additional_info = form_payload.get("additional_info") or ""
-        full_text = f"Description: {description_text}. Medical History: {medical_history}. Additional Info: {additional_info}"
+        relevant_investigations = form_payload.get("relevant_investigations") or ""
+        full_text = f"Description: {description_text}. Investigations: {relevant_investigations}. Medical History: {medical_history}. Additional Info: {additional_info}"
         
         suspect_drug_names = [d.get("drug_name", "") for d in suspect_drugs if d.get("drug_name")]
         other_drug_names = tuple(name for name in suspect_drug_names if name.lower() != target_drug_name.lower())
