@@ -3,7 +3,15 @@ import os
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'adr-causality-secret-key-2026')
+    SECRET_KEY = os.environ.get('SECRET_KEY')
+
+    # Seeded admin account configuration. Passwords must come from env only.
+    ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
+    ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL')
+    ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD')
+    ADMIN_PASSWORD_HASH = os.environ.get('ADMIN_PASSWORD_HASH')
+    ADMIN_DISPLAY_NAME = os.environ.get('ADMIN_DISPLAY_NAME', 'ADR Administrator')
+    ADMIN_DEPARTMENT = os.environ.get('ADMIN_DEPARTMENT', 'Pharmacovigilance Unit')
 
     db_url = os.environ.get('DATABASE_URL')
     

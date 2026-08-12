@@ -1,91 +1,143 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
-<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-8">
-  <div>
-    <h1 class="text-2xl sm:text-3xl font-extrabold gradient-text">Dashboard</h1>
-    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">ADR Causality Assessment Overview</p>
-  </div>
-  <a href="/capture" class="gradient-bg text-white px-5 py-2.5 rounded-lg font-semibold text-sm shadow-lg shadow-brand-500/30 hover:-translate-y-0.5 transition-all min-h-[44px] flex items-center gap-2">📷 Scan Form</a>
+
+<div class="mb-5">
+  <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Welcome back, {{ current_user.display_name }}</h1>
+  <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">ADR Reporting and Causality Assessment Dashboard</p>
 </div>
 
-<!-- Stats Grid -->
-<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-  <div class="relative bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 flex items-center gap-4 hover:-translate-y-0.5 transition-all overflow-hidden">
-    <div class="absolute top-0 left-0 right-0 h-[3px] gradient-bg"></div>
-    <div class="w-12 h-12 rounded-xl bg-brand-50 dark:bg-brand-500/10 flex items-center justify-center text-xl flex-shrink-0">📄</div>
-    <div><h4 class="text-2xl font-extrabold text-gray-900 dark:text-white">{{ total_reports }}</h4><p class="text-xs text-gray-500 dark:text-gray-400">Total Reports</p></div>
-  </div>
-  <div class="relative bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 flex items-center gap-4 hover:-translate-y-0.5 transition-all overflow-hidden">
-    <div class="absolute top-0 left-0 right-0 h-[3px] gradient-danger"></div>
-    <div class="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center text-xl flex-shrink-0">⚠️</div>
-    <div><h4 class="text-2xl font-extrabold text-gray-900 dark:text-white">{{ serious_reports }}</h4><p class="text-xs text-gray-500 dark:text-gray-400">Serious ADRs</p></div>
-  </div>
-  <div class="relative bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 flex items-center gap-4 hover:-translate-y-0.5 transition-all overflow-hidden">
-    <div class="absolute top-0 left-0 right-0 h-[3px] gradient-success"></div>
-    <div class="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-xl flex-shrink-0">📷</div>
-    <div><h4 class="text-2xl font-extrabold text-gray-900 dark:text-white">OCR</h4><p class="text-xs text-gray-500 dark:text-gray-400">Scan & Extract</p></div>
-  </div>
-  <div class="relative bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 flex items-center gap-4 hover:-translate-y-0.5 transition-all overflow-hidden">
-    <div class="absolute top-0 left-0 right-0 h-[3px] gradient-warning"></div>
-    <div class="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center text-xl flex-shrink-0">🔬</div>
-    <div><h4 class="text-2xl font-extrabold text-gray-900 dark:text-white">2</h4><p class="text-xs text-gray-500 dark:text-gray-400">Assessment Methods</p></div>
-  </div>
+<div class="grid grid-cols-1 gap-3 md:grid-cols-2 mb-6">
+  <a href="{{ url_for('capture') }}" class="group flex min-h-[150px] flex-col justify-between rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 p-4 text-white shadow-lg shadow-indigo-950/15 transition hover:-translate-y-0.5">
+    <div>
+      <div class="mb-2 flex items-center justify-between text-xs font-bold uppercase tracking-[0.25em] text-white/80">
+        <span>Active</span>
+        <span class="text-2xl">📷</span>
+      </div>
+      <h2 class="text-lg font-black leading-tight">SCAN ADR FORM (OCR)</h2>
+      <p class="mt-2 text-sm text-white/85">Scan paper forms and extract structured ADR data instantly.</p>
+    </div>
+    <p class="text-xs font-semibold text-white/90">Tap to start</p>
+  </a>
+
+  <a href="{{ url_for('adr_form') }}" class="group flex min-h-[150px] flex-col justify-between rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 p-4 text-white shadow-lg shadow-emerald-950/15 transition hover:-translate-y-0.5">
+    <div>
+      <div class="mb-2 flex items-center justify-between text-xs font-bold uppercase tracking-[0.25em] text-white/80">
+        <span>Manual</span>
+        <span class="text-2xl">✍️</span>
+      </div>
+      <h2 class="text-lg font-black leading-tight">MANUAL ADR REPORTING</h2>
+      <p class="mt-2 text-sm text-white/85">Enter adverse drug reaction details manually.</p>
+    </div>
+    <p class="text-xs font-semibold text-white/90">Tap to start</p>
+  </a>
 </div>
 
-<!-- Dashboard Grid -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-  <!-- Recent Reports -->
-  <div class="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 hover:border-brand-300 dark:hover:border-brand-500/30 transition-colors">
-    <div class="flex justify-between items-center mb-5 pb-4 border-b border-gray-200 dark:border-gray-700/50">
-      <h3 class="font-semibold text-gray-900 dark:text-white">Recent Reports</h3>
-      <a href="/reports" class="text-sm font-semibold text-brand-500 border border-brand-500 px-3 py-1.5 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors">View All</a>
+<div class="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+  <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-500">Total</p>
+        <p class="mt-1 text-2xl font-black text-gray-900">{{ total_reports }}</p>
+      </div>
+      <div class="text-3xl">📄</div>
     </div>
-    {% if recent_reports %}
-    <div class="overflow-x-auto -mx-5 px-5">
-      <table class="w-full text-sm min-w-[500px]">
-        <thead><tr class="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500">
-          <th class="text-left py-2 px-3">ID</th><th class="text-left py-2 px-3">Patient</th><th class="text-left py-2 px-3">Reaction</th><th class="text-left py-2 px-3">WHO-UMC</th><th class="text-left py-2 px-3">Date</th>
-        </tr></thead>
-        <tbody>
-        {% for r in recent_reports %}
-        <tr class="border-t border-gray-100 dark:border-gray-700/30 hover:bg-gray-50 dark:hover:bg-gray-700/20 cursor-pointer transition-colors" onclick="location.href='/report/{{r.id}}'">
-          <td class="py-2.5 px-3 font-medium">#{{r.id}}</td>
-          <td class="py-2.5 px-3">{{r.patient_initials or '—'}}</td>
-          <td class="py-2.5 px-3 max-w-[150px] truncate">{{(r.reaction_description or '—')[:40]}}</td>
-          <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400">{{r.who_umc_category or '—'}}</span></td>
-          <td class="py-2.5 px-3 text-gray-500 dark:text-gray-400">{{r.created_at.strftime('%d/%m/%Y') if r.created_at else '—'}}</td>
-        </tr>
-        {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% else %}
-    <div class="text-center py-12 text-gray-400 dark:text-gray-600">
-      <div class="text-5xl mb-3">📋</div>
-      <p>No reports yet. Submit your first ADR report!</p>
-      <a href="/capture" class="gradient-bg text-white px-5 py-2 rounded-lg font-semibold text-sm inline-block mt-4">Scan a Form</a>
-    </div>
-    {% endif %}
   </div>
-
-  <!-- Quick Actions -->
-  <div class="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 hover:border-brand-300 dark:hover:border-brand-500/30 transition-colors">
-    <div class="flex justify-between items-center mb-5 pb-4 border-b border-gray-200 dark:border-gray-700/50">
-      <h3 class="font-semibold text-gray-900 dark:text-white">Quick Actions</h3>
+  <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-500">Causality</p>
+        <p class="mt-1 text-base font-black text-gray-900">WHO - CERTAIN</p>
+      </div>
+      <div class="text-3xl">✔️</div>
     </div>
-    <div class="flex flex-col gap-3">
-      <a href="/capture" class="gradient-bg text-white px-5 py-3 rounded-lg font-semibold text-sm text-center shadow-lg shadow-brand-500/20 hover:-translate-y-0.5 transition-all">📷 Scan ADR Form</a>
-      <a href="/form" class="border border-brand-500 text-brand-500 px-5 py-3 rounded-lg font-semibold text-sm text-center hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors">📝 Manual ADR Report</a>
-      <a href="/naranjo" class="border border-brand-500 text-brand-500 px-5 py-3 rounded-lg font-semibold text-sm text-center hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors">🧮 Naranjo Scale Calculator</a>
-      <a href="/analytics" class="border border-brand-500 text-brand-500 px-5 py-3 rounded-lg font-semibold text-sm text-center hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors">📈 View Analytics</a>
+  </div>
+  <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-500">Naranjo</p>
+        <p class="mt-1 text-base font-black text-gray-900">POSSIBLE</p>
+      </div>
+      <div class="text-3xl">🧮</div>
     </div>
-    <div class="mt-5 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700/30">
-      <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">System Info</h4>
-      <p class="text-xs text-gray-400 dark:text-gray-500">Assessment: Naranjo Scale, WHO-UMC</p>
-      <p class="text-xs text-gray-400 dark:text-gray-500">OCR: Gemini AI Multimodal</p>
-      <p class="text-xs text-gray-400 dark:text-gray-500">Mobile PWA with camera scanning</p>
+  </div>
+  <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-[10px] font-bold uppercase tracking-[0.25em] text-gray-500">Month</p>
+        <p class="mt-1 text-2xl font-black text-gray-900">{{ this_month_count }}</p>
+      </div>
+      <div class="text-3xl">📊</div>
     </div>
   </div>
 </div>
+
+<div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+  <div class="mb-4 flex items-center justify-between border-b border-gray-200 pb-3">
+    <div>
+      <h3 class="text-lg font-bold text-gray-900">Recent Reports (Date Wise)</h3>
+    </div>
+  </div>
+
+  {% if recent_reports %}
+    {% set ns = namespace(current_date=None) %}
+    <div class="space-y-3">
+      {% for report in recent_reports %}
+        {% set report_date = report.created_at.date() if report.created_at else None %}
+        {% if ns.current_date != report_date %}
+          {% set ns.current_date = report_date %}
+          <div class="sticky top-16 z-10 -mx-5 border-y border-gray-200 bg-[#0f5f74] px-5 py-2 text-[10px] font-bold uppercase tracking-[0.25em] text-white">
+            {% if report_date == today_date %}
+              Today ({{ report_date.strftime('%d %B, %Y') if report_date else '—' }})
+            {% elif report_date == yesterday_date %}
+              Yesterday ({{ report_date.strftime('%d %B, %Y') if report_date else '—' }})
+            {% else %}
+              {{ report_date.strftime('%d %B, %Y') if report_date else '—' }}
+            {% endif %}
+          </div>
+        {% endif %}
+
+        {% set primary_medication = report.medications[0] if report.medications else None %}
+        <a href="{{ url_for('view_report', report_id=report.id) }}" class="group block rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:bg-gray-50">
+          <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-sm font-bold text-gray-900">ID #{{ report.id }}</span>
+                <span class="text-xs text-gray-500">{{ report.created_at.strftime('%I:%M %p') if report.created_at else '—' }}</span>
+              </div>
+              <p class="mt-1 text-sm text-gray-700">
+                <span class="font-semibold text-gray-900">Suspected Drug</span>
+                {{ primary_medication.drug_name if primary_medication and primary_medication.drug_name else '—' }}
+              </p>
+              <p class="mt-1 text-sm text-gray-600">
+                <span class="font-semibold text-gray-900">Submitted</span>
+                {{ report.created_at.strftime('%d %b %Y') if report.created_at else '—' }}
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-full px-3 py-1 text-xs font-bold {% if report.who_umc_category == 'Certain' %}bg-emerald-100 text-emerald-700{% elif report.who_umc_category == 'Probable/Likely' %}bg-amber-100 text-amber-700{% elif report.who_umc_category == 'Possible' %}bg-orange-100 text-orange-700{% else %}bg-gray-100 text-gray-700{% endif %}">
+                {{ report.who_umc_category or 'PENDING' }}
+              </span>
+              <span class="rounded-full px-3 py-1 text-xs font-bold {% if report.naranjo_category == 'Definite' %}bg-emerald-100 text-emerald-700{% elif report.naranjo_category == 'Probable' %}bg-sky-100 text-sky-700{% elif report.naranjo_category == 'Possible' %}bg-amber-100 text-amber-700{% else %}bg-gray-100 text-gray-700{% endif %}">
+                {{ report.naranjo_category or 'PENDING' }}
+              </span>
+              <div class="text-lg font-semibold text-gray-400 transition-colors group-hover:text-[#0f5f74]">→</div>
+            </div>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="py-12 text-center text-gray-500">
+      <div class="mb-4 text-6xl">📋</div>
+      <p class="text-lg font-semibold text-gray-900">No reports yet</p>
+      <p class="mt-2 text-sm">Start with the OCR capture flow or open the manual form to submit the first ADR report.</p>
+      <div class="mt-6 flex justify-center gap-3">
+        <a href="{{ url_for('capture') }}" class="rounded-xl bg-[#0f5f74] px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5">📷 Scan Your First Form</a>
+        <a href="{{ url_for('adr_form') }}" class="rounded-xl border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:border-[#0f5f74] hover:text-[#0f5f74]">✍️ Manual Entry</a>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
 {% endblock %}

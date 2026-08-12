@@ -8,15 +8,20 @@ import json
 import base64
 import tempfile
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
+from functools import wraps
 from dotenv import load_dotenv
 
 # Load environment variables from .env
 load_dotenv()
 print("DEBUG: Environment variables loaded. GEMINI_API_KEY present:", bool(os.environ.get('GEMINI_API_KEY')))
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, Response, send_file
+from flask import Flask, render_template, request, jsonify, redirect, url_for, Response, send_file, flash, session
 from flask_cors import CORS
+from flask_login import LoginManager, current_user, login_user, login_required, logout_user
+from sqlalchemy import inspect, or_, text
+from werkzeug.security import check_password_hash, generate_password_hash
+from database.models import User
 
 # Google Cloud credentials from environment variable (for Render deployment)
 google_creds_json = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS_JSON')
@@ -51,36 +56,264 @@ app = Flask(__name__)
 app.config.from_object(Config)
 CORS(app)
 
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
+login_manager.login_message_category = 'warning'
+
+
+@app.after_request
+def add_no_store_headers(response):
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    try:
+        return db.session.get(User, int(user_id))
+    except (TypeError, ValueError):
+        return None
+
+
+def _is_admin_user(user):
+    return bool(user and getattr(user, 'role', '').lower() == 'admin')
+
+
+def admin_required(view_function):
+    @wraps(view_function)
+    @login_required
+    def wrapped(*args, **kwargs):
+        if not _is_admin_user(current_user):
+            return render_template('403.html'), 403
+        return view_function(*args, **kwargs)
+
+    return wrapped
+
 # Initialize database
 init_db(app)
+
+
+def _ensure_user_schema():
+    inspector = inspect(db.engine)
+    if 'users' not in inspector.get_table_names():
+        return
+
+    existing_columns = {column['name'] for column in inspector.get_columns('users')}
+    dialect_name = db.engine.dialect.name
+    alter_statements = []
+
+    if 'email' not in existing_columns:
+        alter_statements.append('ALTER TABLE users ADD COLUMN email VARCHAR(120)')
+    if 'role' not in existing_columns:
+        if dialect_name == 'postgresql':
+            alter_statements.append("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'user'")
+        else:
+            alter_statements.append("ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user'")
+    if 'created_at' not in existing_columns:
+        if dialect_name == 'postgresql':
+            alter_statements.append('ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP')
+        else:
+            alter_statements.append('ALTER TABLE users ADD COLUMN created_at DATETIME')
+
+    for statement in alter_statements:
+        db.session.execute(text(statement))
+    if alter_statements:
+        db.session.commit()
+
+    # Backfill legacy records so login and duplicate checks remain safe.
+    db.session.execute(text("UPDATE users SET role = 'user' WHERE role IS NULL OR role = ''"))
+    db.session.execute(text("UPDATE users SET email = username || '@local.invalid' WHERE email IS NULL OR email = ''"))
+    db.session.commit()
+
+
+def _bootstrap_admin_account():
+    admin_username = app.config.get('ADMIN_USERNAME')
+    admin_email = app.config.get('ADMIN_EMAIL')
+    admin_password = app.config.get('ADMIN_PASSWORD')
+    admin_password_hash = app.config.get('ADMIN_PASSWORD_HASH')
+
+    if not admin_username or (not admin_password and not admin_password_hash):
+        return
+
+    if not admin_email:
+        admin_email = f'{admin_username}@local.invalid'
+
+    admin_user = User.query.filter((User.username == admin_username) | (User.email == admin_email)).first()
+    if admin_user:
+        changed = False
+        if admin_user.role != 'admin':
+            admin_user.role = 'admin'
+            changed = True
+        if not admin_user.email:
+            admin_user.email = admin_email
+            changed = True
+        if changed:
+            db.session.commit()
+        return
+
+    admin_user = User(
+        username=admin_username,
+        email=admin_email,
+        display_name=app.config.get('ADMIN_DISPLAY_NAME', 'ADR Administrator'),
+        department=app.config.get('ADMIN_DEPARTMENT', 'Pharmacovigilance Unit'),
+        role='admin',
+    )
+    if admin_password_hash:
+        admin_user.password_hash = admin_password_hash
+    else:
+        admin_user.password_hash = generate_password_hash(admin_password)
+
+    db.session.add(admin_user)
+    db.session.commit()
+
+
+def _get_user_by_identifier(identifier):
+    if not identifier:
+        return None
+    normalized = identifier.strip()
+    return User.query.filter((User.username == normalized) | (User.email == normalized)).first()
+
+
+def _login_user_and_redirect(user, next_url):
+    login_user(user)
+    flash('Signed in successfully.', 'success')
+    return redirect(_safe_next_url(next_url))
 
 # Ensure directories exist
 os.makedirs(app.config.get('UPLOAD_FOLDER', 'uploads'), exist_ok=True)
 
+with app.app_context():
+    _ensure_user_schema()
+    _bootstrap_admin_account()
+
+
+def _safe_next_url(next_url):
+    if next_url and next_url.startswith('/'):
+        return next_url
+    return url_for('index')
+
 
 # ==================== PAGE ROUTES ====================
 
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+
+    error_message = None
+    if request.method == 'POST':
+        identifier = (request.form.get('identifier') or request.form.get('username') or '').strip()
+        password = request.form.get('password') or ''
+        next_url = request.form.get('next') or request.args.get('next')
+
+        user = _get_user_by_identifier(identifier)
+        if user and user.check_password(password):
+            if not user.password_hash.startswith(('scrypt:', 'pbkdf2:', 'argon2:')):
+                user.set_password(password)
+                db.session.commit()
+            return _login_user_and_redirect(user, next_url)
+
+        error_message = 'Invalid username or password.'
+        flash(error_message, 'error')
+
+    return render_template('login.html', error_message=error_message, active_tab='login')
+
+
+@app.route('/register', methods=['GET'])
+def register_page():
+    return render_template('login.html', active_tab='signup')
+
+
+@app.route('/signup', methods=['POST'])
+def signup():
+
+    display_name = (request.form.get('display_name') or '').strip()
+    username = (request.form.get('username') or '').strip()
+    email = (request.form.get('email') or '').strip().lower()
+    department = (request.form.get('department') or '').strip()
+    password = request.form.get('password') or ''
+
+    if not all([display_name, username, email, department, password]):
+        flash('All fields are required.', 'error')
+        return redirect(url_for('register_page'))
+
+    if len(password) < 4:
+        flash('Password must be at least 4 characters.', 'error')
+        return redirect(url_for('register_page'))
+
+    existing_username = User.query.filter_by(username=username).first()
+    if existing_username:
+        flash('Username already exists. Please choose another.', 'error')
+        return redirect(url_for('register_page'))
+
+    existing_email = User.query.filter_by(email=email).first()
+    if existing_email:
+        flash('Email already exists. Please use another email.', 'error')
+        return redirect(url_for('register_page'))
+
+    user = User(
+        username=username,
+        email=email,
+        password_hash=generate_password_hash(password),
+        display_name=display_name,
+        department=department,
+        role='user',
+    )
+    db.session.add(user)
+    db.session.commit()
+
+    flash('Account created successfully. Please sign in.', 'success')
+    return redirect(url_for('login', tab='login'))
+
+
+@app.route('/logout')
+def logout():
+    logout_user()
+    session.clear()
+    return redirect(url_for('login'))
+
+
+@app.errorhandler(403)
+def forbidden(_error):
+    return render_template('403.html'), 403
+
 @app.route('/')
+@login_required
 def index():
     """Dashboard / Home page."""
-    with app.app_context():
-        total_reports = ADRReport.query.count()
-        serious_reports = ADRReport.query.filter_by(is_serious=True).count()
-        recent_reports = ADRReport.query.order_by(ADRReport.created_at.desc()).limit(5).all()
+    today_date = datetime.utcnow().date()
+    month_start = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    total_reports = ADRReport.query.count()
+    serious_reports = ADRReport.query.filter_by(is_serious=True).count()
+    recent_reports = ADRReport.query.order_by(ADRReport.created_at.desc()).limit(7).all()
+    who_certain_count = ADRReport.query.filter_by(who_umc_category='Certain').count()
+    naranjo_probable_count = ADRReport.query.filter_by(naranjo_category='Probable').count()
+    this_month_count = ADRReport.query.filter(ADRReport.created_at >= month_start).count()
 
     return render_template('index.html',
                            total_reports=total_reports,
                            serious_reports=serious_reports,
+                           who_certain_count=who_certain_count,
+                           naranjo_probable_count=naranjo_probable_count,
+                           this_month_count=this_month_count,
+                           today_date=today_date,
+                           yesterday_date=today_date - timedelta(days=1),
                            recent_reports=recent_reports)
 
 
 @app.route('/form')
+@login_required
 def adr_form():
     """ADR Reporting Form page."""
     return render_template('form.html')
 
 
 @app.route('/reports')
+@login_required
 def reports_list():
     """View all ADR reports."""
     page = request.args.get('page', 1, type=int)
@@ -92,6 +325,7 @@ def reports_list():
 
 
 @app.route('/report/<int:report_id>')
+@login_required
 def view_report(report_id):
     """View a single ADR report with causality assessment."""
     report = ADRReport.query.get_or_404(report_id)
@@ -99,26 +333,68 @@ def view_report(report_id):
 
 
 @app.route('/analytics')
+@login_required
 def analytics():
     """Analytics dashboard."""
     return render_template('analytics.html')
 
 
 @app.route('/naranjo')
+@login_required
 def naranjo_page():
     """Naranjo scale calculator page."""
     return render_template('naranjo.html', questions=NARANJO_QUESTIONS)
 
 
 @app.route('/capture')
+@login_required
 def capture():
     """Camera capture page for scanning ADR forms."""
     return render_template('capture.html')
 
 
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
+    users = User.query.order_by(User.created_at.desc()).all()
+    recent_reports = ADRReport.query.order_by(ADRReport.created_at.desc()).limit(10).all()
+
+    return render_template(
+        'admin_dashboard.html',
+        users=users,
+        recent_reports=recent_reports,
+        total_users=len(users),
+        admin_users=len([user for user in users if user.role == 'admin']),
+        regular_users=len([user for user in users if user.role != 'admin']),
+    )
+
+
+@app.route('/admin/users/<int:user_id>/role', methods=['POST'])
+@admin_required
+def update_user_role(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        return render_template('403.html'), 403
+
+    new_role = (request.form.get('role') or '').strip().lower()
+    if new_role not in {'user', 'admin'}:
+        flash('Invalid role selected.', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+    if user.id == current_user.id:
+        flash('You cannot change your own role from this page.', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+    user.role = new_role
+    db.session.commit()
+    flash(f'Updated {user.display_name} to {new_role} role.', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+
 # ==================== API ROUTES ====================
 
 @app.route('/api/submit-report', methods=['POST'])
+@login_required
 def submit_report():
     """Submit a new ADR report."""
     try:
@@ -272,6 +548,7 @@ def submit_report():
 
 
 @app.route('/api/reports', methods=['GET'])
+@login_required
 def get_reports():
     """Get all reports as JSON."""
     reports = ADRReport.query.order_by(ADRReport.created_at.desc()).all()
@@ -279,6 +556,7 @@ def get_reports():
 
 
 @app.route('/api/report/<int:report_id>', methods=['GET'])
+@login_required
 def get_report(report_id):
     """Get a single report."""
     report = ADRReport.query.get_or_404(report_id)
@@ -286,6 +564,7 @@ def get_report(report_id):
 
 
 @app.route('/api/report/<int:report_id>', methods=['DELETE'])
+@login_required
 def delete_report(report_id):
     """Delete a report."""
     report = ADRReport.query.get_or_404(report_id)
@@ -295,6 +574,7 @@ def delete_report(report_id):
 
 
 @app.route('/api/naranjo/calculate', methods=['POST'])
+@login_required
 def calculate_naranjo():
     """Calculate Naranjo score from answers."""
     data = request.get_json()
@@ -307,6 +587,7 @@ def calculate_naranjo():
 
 
 @app.route('/api/who-umc/assess', methods=['POST'])
+@login_required
 def assess_who():
     """Assess causality using WHO-UMC scale."""
     data = request.get_json()
@@ -318,6 +599,7 @@ def assess_who():
 
 
 @app.route('/api/ocr', methods=['POST'])
+@login_required
 def ocr_form():
     """
     OCR endpoint: receives a base64 image from the phone camera,
@@ -468,6 +750,7 @@ D. REPORTER DETAILS:
 
 
 @app.route('/api/analytics/stats', methods=['GET'])
+@login_required
 def get_analytics_stats():
     """Get analytics statistics."""
     try:
@@ -553,6 +836,7 @@ def get_age_group(age_str):
         return 'Unknown'
 
 @app.route('/api/analytics/dose-age')
+@login_required
 def api_dose_age():
     try:
         results = db.session.query(
@@ -592,6 +876,7 @@ def api_dose_age():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/analytics/export-excel')
+@login_required
 def api_export_excel():
     try:
         from openpyxl import Workbook

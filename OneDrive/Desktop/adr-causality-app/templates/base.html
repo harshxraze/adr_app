@@ -3,155 +3,138 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
-  <title>{% block title %}ADR Causality Assessment{% endblock %} | PvPI AI System</title>
-  <meta name="description" content="AI-driven Adverse Drug Reaction Causality Assessment System using Naranjo and WHO-UMC scales">
-  <meta name="theme-color" content="#0F6E56">
+  <title>{% block title %}ADR Reporting and Causality Assessment App{% endblock %}</title>
+  <meta name="description" content="ADR Reporting and Causality Assessment App">
+  <meta name="theme-color" content="#0f766e">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="ADR Analyzer">
-  <link rel="manifest" href="/static/manifest.json">
-  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
       theme: {
         extend: {
-          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            display: ['Plus Jakarta Sans', 'Inter', 'system-ui', 'sans-serif']
+          },
           colors: {
-            brand: { 50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',300:'#a5b4fc',400:'#818cf8',500:'#6366f1',600:'#4f46e5',700:'#4338ca' },
+            primary: { 50:'#effdf8',100:'#d9f8ef',200:'#b8efdf',300:'#7ce0c5',400:'#38caa6',500:'#0f766e',600:'#0f5f59',700:'#124b49',800:'#113c3b',900:'#0d2f2e' },
           }
         }
       }
     }
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <style>
-    /* Minimal custom styles that complement Tailwind */
     body { font-family: 'Inter', system-ui, sans-serif; }
-    .gradient-text { background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .gradient-bg { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
-    .gradient-success { background: linear-gradient(135deg, #10b981, #34d399); }
-    .gradient-danger { background: linear-gradient(135deg, #ef4444, #f43f5e); }
-    .gradient-warning { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
-    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-    .toast-anim { animation: slideIn 0.3s ease-out; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spinner { animation: spin 0.8s linear infinite; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-    .fade-in { animation: fadeIn 0.5s ease-out; }
-    /* Scrollbar styling for dark mode */
-    .dark ::-webkit-scrollbar { width: 8px; height: 8px; }
-    .dark ::-webkit-scrollbar-track { background: #111827; }
-    .dark ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
-    .dark ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+    .gradient-primary { background: linear-gradient(135deg, #0f766e, #0f5f59); }
+    .gradient-success { background: linear-gradient(135deg, #0f9d58, #16a34a); }
+    .gradient-ink { background: linear-gradient(135deg, #0f172a, #134e4a); }
+    .gradient-surface { background: radial-gradient(circle at top left, rgba(15, 118, 110, 0.14), transparent 30%), linear-gradient(180deg, rgba(255,255,255,0.92), rgba(248,250,252,0.92)); }
+    .gradient-text { background: linear-gradient(135deg, #0f766e, #155e75); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    @keyframes slideIn { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .slide-in { animation: slideIn 0.3s ease-out; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-up { animation: fadeUp 0.35s ease-out; }
   </style>
   {% block head %}{% endblock %}
 </head>
-<body class="bg-gray-50 text-gray-900 dark:bg-[#0a0e1a] dark:text-gray-100 min-h-screen overflow-x-hidden transition-colors duration-300">
-  <div class="flex min-h-screen w-full overflow-x-hidden">
-
-    <!-- Sidebar -->
-    <aside id="sidebar" class="fixed top-0 left-0 h-full w-64 z-50 flex flex-col
-      bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700/50
-      transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
-
-      <!-- Brand -->
-      <div class="flex items-center gap-3 px-5 py-5 mb-4">
-        <div class="w-10 h-10 gradient-bg rounded-lg flex items-center justify-center text-white text-xl flex-shrink-0">⚕</div>
-        <div>
-          <h2 class="text-base font-bold text-gray-900 dark:text-white">ADR-AI</h2>
-          <span class="text-xs text-gray-500 dark:text-gray-500">Causality System</span>
+<body class="min-h-screen overflow-x-hidden bg-[#edf4f5] text-gray-900 dark:bg-slate-950 dark:text-gray-100">
+  <div class="min-h-screen">
+    <aside id="sidebar" class="fixed bottom-0 left-0 top-16 z-50 flex w-[18.5rem] -translate-x-full flex-col bg-[#0f5f74] text-white shadow-2xl shadow-slate-950/40 transition-transform duration-300">
+      <div class="flex items-center gap-3 border-b border-white/10 px-5 py-5">
+        <div class="flex h-11 w-11 items-center justify-center rounded-full bg-white/15 ring-2 ring-white/20">
+          <span class="text-xl">👩‍⚕️</span>
+        </div>
+        <div class="min-w-0">
+          <p class="truncate text-sm font-semibold">{{ current_user.display_name }}</p>
+          <p class="truncate text-[11px] text-white/70">{{ current_user.department }}</p>
         </div>
       </div>
 
-      <!-- Navigation -->
-      <nav class="flex-1 px-3 space-y-6 overflow-y-auto">
-        <div>
-          <p class="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600">Overview</p>
-          <a href="/" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium min-h-[44px] transition-colors
-            {% if request.endpoint == 'index' %}bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 border-l-[3px] border-brand-500{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-            <span class="text-lg w-6 text-center">📊</span> Dashboard
-          </a>
-        </div>
-        <div>
-          <p class="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600">Reporting</p>
-          <a href="/capture" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium min-h-[44px] transition-colors
-            {% if request.endpoint == 'capture' %}bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 border-l-[3px] border-brand-500{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-            <span class="text-lg w-6 text-center">📷</span> Scan Form
-          </a>
-          <a href="/form" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium min-h-[44px] transition-colors
-            {% if request.endpoint == 'adr_form' %}bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 border-l-[3px] border-brand-500{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-            <span class="text-lg w-6 text-center">📝</span> New ADR Report
-          </a>
-          <a href="/reports" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium min-h-[44px] transition-colors
-            {% if request.endpoint == 'reports_list' %}bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 border-l-[3px] border-brand-500{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-            <span class="text-lg w-6 text-center">📋</span> View Reports
-          </a>
-        </div>
-        <div>
-          <p class="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600">Assessment</p>
-          <a href="/naranjo" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium min-h-[44px] transition-colors
-            {% if request.endpoint == 'naranjo_page' %}bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 border-l-[3px] border-brand-500{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-            <span class="text-lg w-6 text-center">🧮</span> Naranjo Scale
-          </a>
-        </div>
-        <div>
-          <p class="px-3 mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-600">Analytics</p>
-          <a href="/analytics" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium min-h-[44px] transition-colors
-            {% if request.endpoint == 'analytics' %}bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 border-l-[3px] border-brand-500{% else %}text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}">
-            <span class="text-lg w-6 text-center">📈</span> Analytics
-          </a>
-        </div>
+      <nav class="flex-1 px-3 py-4">
+        <a href="{{ url_for('index') }}" class="flex items-center gap-3 rounded-md px-3 py-3 text-sm font-semibold transition-colors min-h-[44px] {% if request.endpoint == 'index' %}bg-white/90 text-[#0f5f74]{% else %}text-white/85 hover:bg-white/10{% endif %}">
+          <span class="w-5 text-center">📊</span>
+          <span>Dashboard</span>
+        </a>
+        <a href="{{ url_for('adr_form') }}" class="mt-1 flex items-center gap-3 rounded-md px-3 py-3 text-sm font-semibold transition-colors min-h-[44px] {% if request.endpoint == 'adr_form' %}bg-white/90 text-[#0f5f74]{% else %}text-white/85 hover:bg-white/10{% endif %}">
+          <span class="w-5 text-center">📄</span>
+          <span>New ADR Report</span>
+        </a>
+        <a href="{{ url_for('capture') }}" class="mt-1 flex items-center gap-3 rounded-md px-3 py-3 text-sm font-semibold transition-colors min-h-[44px] {% if request.endpoint == 'capture' %}bg-white/90 text-[#0f5f74]{% else %}text-white/85 hover:bg-white/10{% endif %}">
+          <span class="w-5 text-center">📷</span>
+          <span>Scan ADR Form</span>
+        </a>
+        <a href="{{ url_for('reports_list') }}" class="mt-1 flex items-center gap-3 rounded-md px-3 py-3 text-sm font-semibold transition-colors min-h-[44px] {% if request.endpoint == 'reports_list' %}bg-white/90 text-[#0f5f74]{% else %}text-white/85 hover:bg-white/10{% endif %}">
+          <span class="w-5 text-center">📂</span>
+          <span>View Reports</span>
+        </a>
+        <a href="{{ url_for('naranjo_page') }}" class="mt-1 flex items-center gap-3 rounded-md px-3 py-3 text-sm font-semibold transition-colors min-h-[44px] {% if request.endpoint == 'naranjo_page' %}bg-white/90 text-[#0f5f74]{% else %}text-white/85 hover:bg-white/10{% endif %}">
+          <span class="w-5 text-center">🧮</span>
+          <span>Naranjo Scale</span>
+        </a>
+        <a href="{{ url_for('analytics') }}" class="mt-1 flex items-center gap-3 rounded-md px-3 py-3 text-sm font-semibold transition-colors min-h-[44px] {% if request.endpoint == 'analytics' %}bg-white/90 text-[#0f5f74]{% else %}text-white/85 hover:bg-white/10{% endif %}">
+          <span class="w-5 text-center">📈</span>
+          <span>ADR Statistics</span>
+        </a>
+        {% if current_user.is_admin %}
+        <a href="{{ url_for('admin_dashboard') }}" class="mt-1 flex items-center gap-3 rounded-md px-3 py-3 text-sm font-semibold transition-colors min-h-[44px] {% if request.endpoint == 'admin_dashboard' %}bg-white/90 text-[#0f5f74]{% else %}text-white/85 hover:bg-white/10{% endif %}">
+          <span class="w-5 text-center">🛠️</span>
+          <span>Admin Dashboard</span>
+        </a>
+        {% endif %}
       </nav>
 
-      <!-- Theme toggle + footer -->
-      <div class="px-4 py-4 border-t border-gray-200 dark:border-gray-700/50">
-        <button id="themeToggle" class="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium
-          bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors min-h-[44px]">
-          <span id="themeIcon">🌙</span>
-          <span id="themeLabel">Dark Mode</span>
-        </button>
-        <p class="text-center text-[11px] text-gray-400 dark:text-gray-600 mt-3">ADR Causality Analyzer v2.0<br>IPC – Govt. of India</p>
+      <div class="border-t border-white/10 p-4">
+        <a href="{{ url_for('logout') }}" class="flex items-center justify-center gap-2 rounded-md bg-white px-4 py-3 text-sm font-semibold text-[#0f5f74] min-h-[44px]">
+          <span>Logout</span>
+        </a>
       </div>
     </aside>
 
-    <!-- Sidebar overlay for mobile -->
-    <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 hidden lg:hidden"></div>
+    <div id="sidebarOverlay" class="fixed inset-x-0 bottom-0 top-16 z-40 hidden bg-black/40"></div>
 
-    <!-- Main Content -->
-    <main class="flex-1 lg:ml-64 min-h-screen w-full overflow-x-hidden">
-      <!-- Mobile top bar -->
-      <div class="lg:hidden fixed top-0 left-0 right-0 z-30 h-14 bg-white/80 dark:bg-[#0a0e1a]/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700/50 flex items-center px-4">
-        <button id="sidebarToggle" aria-label="Toggle menu" class="w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xl">☰</button>
-        <span class="ml-3 font-bold text-sm gradient-text">ADR-AI</span>
-        <button id="themeToggleMobile" class="ml-auto w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-lg">
-          <span id="themeIconMobile">🌙</span>
-        </button>
-      </div>
+    <div class="min-h-screen">
+      <header class="sticky top-0 z-30 border-b border-slate-300/70 bg-[#0f5f74] text-white shadow-lg shadow-slate-950/10">
+        <div class="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
+          <button id="sidebarToggle" aria-label="Open menu" class="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-xl text-white transition hover:bg-white/20">☰</button>
+          <div class="min-w-0 flex-1 text-center">
+            <p class="text-sm font-semibold tracking-wide">ADR Reporter</p>
+          </div>
+          <div class="relative">
+            <button id="profileBtn" aria-label="Profile menu" class="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-sm font-bold ring-1 ring-white/20 transition hover:bg-white/25">{{ current_user.avatar }}</button>
+            <div id="profileDropdown" class="absolute right-0 top-full mt-2 hidden w-56 origin-top-right rounded-xl border border-slate-200 bg-white p-1 shadow-xl shadow-slate-950/10 dark:border-slate-700 dark:bg-slate-900">
+              <div class="border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+                <p class="truncate text-sm font-semibold text-slate-900 dark:text-white">{{ current_user.display_name }}</p>
+                <p class="truncate text-xs text-slate-500 dark:text-slate-400">{{ current_user.department }}</p>
+              </div>
+              {% if current_user.is_admin %}
+              <a href="{{ url_for('admin_dashboard') }}" class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800">
+                <span>🛠️</span>
+                <span>Admin Dashboard</span>
+              </a>
+              {% endif %}
+              <a href="{{ url_for('logout') }}" class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-300 dark:hover:bg-red-900/20 dark:hover:text-red-400">
+                <span>🚪</span>
+                <span>Logout</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </header>
 
-      <div class="pt-16 lg:pt-0 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-        <div id="toast-container" class="fixed top-4 right-4 z-[9999] max-w-[calc(100vw-2rem)]"></div>
-        {% block content %}{% endblock %}
-      </div>
-    </main>
+      <main class="mx-auto w-full max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+        <div class="fade-up">
+          {% block content %}{% endblock %}
+        </div>
+      </main>
+    </div>
   </div>
 
-  <script src="/static/js/app.js"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
   {% block scripts %}{% endblock %}
-
-  <!-- Service Worker Registration -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/static/sw.js')
-          .then(reg => console.log('SW registered'))
-          .catch(err => console.log('SW error:', err));
-      });
-    }
-  </script>
 </body>
 </html>

@@ -3,6 +3,10 @@ Database models for the ADR Causality Assessment System.
 Models map to the IPC/PvPI ADR Reporting Form fields.
 """
 from datetime import datetime
+
+from flask_login import UserMixin
+from werkzeug.security import check_password_hash, generate_password_hash
+
 from database import db
 
 
@@ -191,6 +195,51 @@ class ConcomitantMedication(db.Model):
             'therapy_start_date': self.therapy_start_date,
             'therapy_stop_date': self.therapy_stop_date,
             'indication': self.indication,
+        }
+
+
+class User(UserMixin, db.Model):
+    __tablename__ = 'users'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    username = db.Column(db.String(100), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+    display_name = db.Column(db.String(200), nullable=False)
+    department = db.Column(db.String(200), nullable=False)
+    role = db.Column(db.String(20), nullable=False, default='user')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @property
+    def avatar(self):
+        source = self.display_name or self.username or 'U'
+        return source[:1].upper()
+
+    @property
+    def is_admin(self):
+        return (self.role or '').lower() == 'admin'
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        if not self.password_hash:
+            return False
+
+        # Legacy-safe fallback for pre-hash records during migration.
+        if self.password_hash.startswith(('scrypt:', 'pbkdf2:', 'argon2:')):
+            return check_password_hash(self.password_hash, password)
+        return self.password_hash == password
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'username': self.username,
+            'email': self.email,
+            'display_name': self.display_name,
+            'department': self.department,
+            'role': self.role,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
         }
 
 

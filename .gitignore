@@ -1,6 +1,24 @@
 .env
-*.db
+.env.*
+!.env.example
+
+.venv/
+venv/
+env/
+
 __pycache__/
-*.pyc
-**/uploads/*
+*.py[cod]
+
+*.db
+*.sqlite
+*.sqlite3
+
+node_modules/
+
 .vscode/
+.idea/
+
+.DS_Store
+
+# Local ADR app artifacts
+OneDrive/Desktop/adr-causality-app/uploads/
