@@ -176,7 +176,7 @@ def _bootstrap_admin_account():
     try:
         admin_user = User.query.filter((User.username == admin_username) | (User.email == admin_email)).first()
         if admin_user:
-            print(f"[BOOTSTRAP] Admin user '{admin_username}' already exists in DB. Checking if details need sync.")
+            print(f"[BOOTSTRAP] Admin user found in DB: ID={admin_user.id}, Username={admin_user.username}, Email={admin_user.email}, Role={admin_user.role}")
             changed = False
             if admin_user.role != 'admin':
                 print(f"[BOOTSTRAP] Promoting user role from '{admin_user.role}' to 'admin'")
