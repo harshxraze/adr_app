@@ -158,53 +158,71 @@ def _ensure_report_schema():
 
 
 def _bootstrap_admin_account():
+    print("[BOOTSTRAP] Starting admin account bootstrapping...")
     admin_username = app.config.get('ADMIN_USERNAME')
     admin_email = app.config.get('ADMIN_EMAIL')
     admin_password = app.config.get('ADMIN_PASSWORD')
     admin_password_hash = app.config.get('ADMIN_PASSWORD_HASH')
 
+    print(f"[BOOTSTRAP] Config retrieved: Username={admin_username}, Email={admin_email}, HasPassword={bool(admin_password)}, HasPasswordHash={bool(admin_password_hash)}")
+
     if not admin_username or (not admin_password and not admin_password_hash):
+        print("[BOOTSTRAP] Skipping admin bootstrap: missing username or password/hash in environment.")
         return
 
     if not admin_email:
         admin_email = f'{admin_username}@local.invalid'
 
-    admin_user = User.query.filter((User.username == admin_username) | (User.email == admin_email)).first()
-    if admin_user:
-        changed = False
-        if admin_user.role != 'admin':
-            admin_user.role = 'admin'
-            changed = True
-        if not admin_user.email:
-            admin_user.email = admin_email
-            changed = True
-        # Always re-sync password from env so Render restarts pick up changes
+    try:
+        admin_user = User.query.filter((User.username == admin_username) | (User.email == admin_email)).first()
+        if admin_user:
+            print(f"[BOOTSTRAP] Admin user '{admin_username}' already exists in DB. Checking if details need sync.")
+            changed = False
+            if admin_user.role != 'admin':
+                print(f"[BOOTSTRAP] Promoting user role from '{admin_user.role}' to 'admin'")
+                admin_user.role = 'admin'
+                changed = True
+            if not admin_user.email:
+                admin_user.email = admin_email
+                changed = True
+            # Always re-sync password from env so Render restarts pick up changes
+            if admin_password_hash:
+                if admin_user.password_hash != admin_password_hash:
+                    print("[BOOTSTRAP] Updating password hash from ADMIN_PASSWORD_HASH env var.")
+                    admin_user.password_hash = admin_password_hash
+                    changed = True
+            elif admin_password:
+                if not admin_user.check_password(admin_password):
+                    print("[BOOTSTRAP] Password check failed for existing user. Updating password hash from ADMIN_PASSWORD env var.")
+                    admin_user.password_hash = generate_password_hash(admin_password)
+                    changed = True
+            if changed:
+                db.session.commit()
+                print("[BOOTSTRAP] Existing admin user details updated and committed successfully.")
+            else:
+                print("[BOOTSTRAP] No changes needed for existing admin user.")
+            return
+
+        print(f"[BOOTSTRAP] Admin user '{admin_username}' does not exist. Creating new admin user...")
+        admin_user = User(
+            username=admin_username,
+            email=admin_email,
+            display_name=app.config.get('ADMIN_DISPLAY_NAME', 'ADR Administrator'),
+            department=app.config.get('ADMIN_DEPARTMENT', 'Pharmacovigilance Unit'),
+            role='admin',
+        )
         if admin_password_hash:
-            if admin_user.password_hash != admin_password_hash:
-                admin_user.password_hash = admin_password_hash
-                changed = True
-        elif admin_password:
-            if not admin_user.check_password(admin_password):
-                admin_user.password_hash = generate_password_hash(admin_password)
-                changed = True
-        if changed:
-            db.session.commit()
-        return
+            admin_user.password_hash = admin_password_hash
+        else:
+            admin_user.password_hash = generate_password_hash(admin_password)
 
-    admin_user = User(
-        username=admin_username,
-        email=admin_email,
-        display_name=app.config.get('ADMIN_DISPLAY_NAME', 'ADR Administrator'),
-        department=app.config.get('ADMIN_DEPARTMENT', 'Pharmacovigilance Unit'),
-        role='admin',
-    )
-    if admin_password_hash:
-        admin_user.password_hash = admin_password_hash
-    else:
-        admin_user.password_hash = generate_password_hash(admin_password)
-
-    db.session.add(admin_user)
-    db.session.commit()
+        db.session.add(admin_user)
+        db.session.commit()
+        print("[BOOTSTRAP] New admin user created and committed successfully.")
+    except Exception as e:
+        print(f"[BOOTSTRAP] Error bootstrapping admin account: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def _get_user_by_identifier(identifier):
