@@ -4,12 +4,13 @@
 <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
   <div>
     <p class="text-xs font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Admin Area</p>
-    <h1 class="mt-2 text-2xl font-bold text-slate-900 dark:text-white">Registered Users</h1>
+    <h1 class="mt-2 text-2xl font-bold text-slate-900 dark:text-white">Registered Users & Auditing</h1>
     <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Manage accounts, roles, and audit the current user base.</p>
   </div>
   <a href="{{ url_for('index') }}" class="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-primary-300 hover:text-primary-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">Back to Dashboard</a>
 </div>
 
+<!-- Stats Grid -->
 <div class="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-6">
   <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
     <p class="text-xs font-bold uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">Total Users</p>
@@ -25,6 +26,42 @@
   </div>
 </div>
 
+<!-- Invite Section -->
+<div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/80 mb-6">
+  <div class="mb-4 border-b border-slate-200 pb-3 dark:border-slate-800">
+    <h2 class="text-lg font-bold text-slate-900 dark:text-white">✉️ Invite Admin User</h2>
+    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Generate a time-limited secure link to invite an administrator.</p>
+  </div>
+  
+  <form method="POST" action="{{ url_for('admin_invite') }}" class="space-y-4">
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Target Email Address</label>
+        <input type="email" name="invite_email" placeholder="email@hospital.com" required class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 focus:outline-none focus:border-primary-500">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Confirm Your Admin Password</label>
+        <input type="password" name="admin_password" placeholder="Your Password" required class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 focus:outline-none focus:border-primary-500">
+      </div>
+    </div>
+    
+    <button type="submit" class="w-full rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-500 flex items-center justify-center gap-2">
+      Generate Invitation Token
+    </button>
+  </form>
+
+  {% if invite_url %}
+  <div class="mt-4 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300">
+    <p class="text-xs font-bold uppercase tracking-wider mb-2">Generated Invite Link (Expires in 48 hours):</p>
+    <div class="flex gap-2">
+      <input id="inviteUrlField" type="text" readonly value="{{ invite_url }}" class="flex-1 text-xs bg-white dark:bg-slate-950 p-2 rounded border border-emerald-300 dark:border-emerald-500/30 text-slate-800 dark:text-slate-200 font-mono">
+      <button onclick="navigator.clipboard.writeText(document.getElementById('inviteUrlField').value); alert('Copied to clipboard!');" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded text-xs font-semibold transition-colors">Copy</button>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Main Layout Grid -->
 <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
   <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
     <div class="mb-4 flex items-center justify-between border-b border-slate-200 pb-3 dark:border-slate-800">
@@ -34,7 +71,7 @@
     <div class="space-y-3">
       {% for user in users %}
       <div class="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div class="flex items-center gap-2">
               <span class="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-sm font-bold text-primary-700 dark:bg-primary-500/15 dark:text-primary-200">{{ user.avatar }}</span>
@@ -43,15 +80,26 @@
                 <p class="text-xs text-slate-500 dark:text-slate-400">{{ user.username }} · {{ user.email }}</p>
               </div>
             </div>
-            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">{{ user.department }}</p>
+            <p class="mt-2 text-xs text-slate-550 dark:text-slate-350">
+              Department: <span class="font-medium text-slate-700 dark:text-slate-200">{{ user.department or '—' }}</span>
+            </p>
+            <p class="mt-1 text-xs text-slate-550 dark:text-slate-350">
+              Reports Submitted: <span class="font-bold text-brand-600 dark:text-brand-400">{{ report_counts.get(user.id, 0) }}</span>
+            </p>
+            <p class="mt-1 text-xs text-slate-550 dark:text-slate-350">
+              Last Login: <span class="font-medium text-slate-700 dark:text-slate-200">{{ user.last_login.strftime('%d/%m/%Y %I:%M %p') if user.last_login else 'Never' }}</span>
+            </p>
           </div>
 
-          <form method="POST" action="{{ url_for('update_user_role', user_id=user.id) }}" class="flex items-center gap-2">
-            <select name="role" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200" {% if user.id == current_user.id %}disabled{% endif %}>
+          <form method="POST" action="{{ url_for('update_user_role', user_id=user.id) }}" class="flex flex-col gap-2 items-end w-full sm:w-auto">
+            <select name="role" class="w-full sm:w-auto rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200" {% if user.id == current_user.id %}disabled{% endif %}>
               <option value="user" {% if user.role == 'user' %}selected{% endif %}>User</option>
               <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
             </select>
-            <button type="submit" class="rounded-lg bg-primary-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-400" {% if user.id == current_user.id %}disabled{% endif %}>Update</button>
+            {% if user.id != current_user.id %}
+            <input type="password" name="admin_password" placeholder="Confirm Admin Password" required class="w-full sm:w-44 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 focus:outline-none focus:border-primary-500">
+            <button type="submit" class="w-full sm:w-auto rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-primary-500">Update Role</button>
+            {% endif %}
           </form>
         </div>
       </div>
@@ -79,5 +127,160 @@
       {% endfor %}
     </div>
   </div>
+
+  <!-- Audit Log Section (Tabbed) -->
+  <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/80 lg:col-span-2">
+    <div class="mb-6 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div>
+        <h2 class="text-lg font-bold text-slate-900 dark:text-white">🛡️ Compliance & Security Audit Logs</h2>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Real-time tracking of clinical activities and security events.</p>
+      </div>
+      <!-- Tab Controls -->
+      <div class="flex border-b border-slate-150 dark:border-slate-850">
+        <button id="tab-admin" onclick="switchAuditTab('admin')" class="px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 border-primary-500 text-primary-600 dark:text-primary-400 focus:outline-none transition-all">Admin Actions</button>
+        <button id="tab-activity" onclick="switchAuditTab('activity')" class="px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 focus:outline-none transition-all">User Activity</button>
+        <button id="tab-logins" onclick="switchAuditTab('logins')" class="px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 focus:outline-none transition-all">Login Attempts</button>
+      </div>
+    </div>
+
+    <!-- Tab 1: Admin Actions -->
+    <div id="panel-admin" class="overflow-x-auto">
+      <table class="w-full text-sm text-left">
+        <thead>
+          <tr class="text-xs uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800">
+            <th class="py-3 px-3">Date</th>
+            <th class="py-3 px-3">Admin</th>
+            <th class="py-3 px-3">Action</th>
+            <th class="py-3 px-3">Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in audit_logs %}
+          <tr class="border-t border-slate-100 dark:border-slate-800/50 text-xs hover:bg-slate-50 dark:hover:bg-slate-800/10">
+            <td class="py-3 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">{{ log.performed_at.strftime('%d/%m/%Y %I:%M %p') if log.performed_at else '—' }}</td>
+            <td class="py-3 px-3 font-semibold text-slate-900 dark:text-white">{{ log.admin_user.display_name if log.admin_user else 'System' }}</td>
+            <td class="py-3 px-3">
+              {% if log.action in ['grant_admin', 'invite_accepted'] %}
+              <span class="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold">{{ log.action }}</span>
+              {% elif log.action == 'revoke_admin' %}
+              <span class="px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 font-semibold">{{ log.action }}</span>
+              {% else %}
+              <span class="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold">{{ log.action }}</span>
+              {% endif %}
+            </td>
+            <td class="py-3 px-3 text-slate-600 dark:text-slate-300">{{ log.details }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="4" class="text-center py-6 text-slate-400 dark:text-slate-600">No admin actions logged yet.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Tab 2: User Activity -->
+    <div id="panel-activity" class="overflow-x-auto hidden">
+      <table class="w-full text-sm text-left">
+        <thead>
+          <tr class="text-xs uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800">
+            <th class="py-3 px-3">Date</th>
+            <th class="py-3 px-3">User</th>
+            <th class="py-3 px-3">Action</th>
+            <th class="py-3 px-3">Report ID</th>
+            <th class="py-3 px-3">IP Address</th>
+            <th class="py-3 px-3">User Agent</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in user_activity_logs %}
+          <tr class="border-t border-slate-100 dark:border-slate-800/50 text-xs hover:bg-slate-50 dark:hover:bg-slate-800/10">
+            <td class="py-3 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">{{ log.timestamp.strftime('%d/%m/%Y %I:%M %p') if log.timestamp else '—' }}</td>
+            <td class="py-3 px-3 font-semibold text-slate-900 dark:text-white">{{ log.user.display_name if log.user else 'Unknown' }}</td>
+            <td class="py-3 px-3 font-medium text-slate-700 dark:text-slate-200">{{ log.action }}</td>
+            <td class="py-3 px-3 font-semibold text-brand-600 dark:text-brand-400 font-mono">
+              {% if log.report_id %}
+              <a href="/report/{{ log.report_id }}" class="hover:underline">#{{ log.report_id }}</a>
+              {% else %}
+              —
+              {% endif %}
+            </td>
+            <td class="py-3 px-3 font-mono text-slate-600 dark:text-slate-400">{{ log.ip_address or '—' }}</td>
+            <td class="py-3 px-3 text-slate-500 dark:text-slate-400 truncate max-w-xs" title="{{ log.user_agent }}">{{ log.user_agent or '—' }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="6" class="text-center py-6 text-slate-400 dark:text-slate-600">No user activity logs recorded.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Tab 3: Login Attempts -->
+    <div id="panel-logins" class="overflow-x-auto hidden">
+      <table class="w-full text-sm text-left">
+        <thead>
+          <tr class="text-xs uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800">
+            <th class="py-3 px-3">Date</th>
+            <th class="py-3 px-3">Identifier</th>
+            <th class="py-3 px-3">Outcome</th>
+            <th class="py-3 px-3">IP Address</th>
+            <th class="py-3 px-3">User Agent</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for attempt in login_attempts %}
+          <tr class="border-t border-slate-100 dark:border-slate-800/50 text-xs hover:bg-slate-50 dark:hover:bg-slate-800/10">
+            <td class="py-3 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">{{ attempt.attempted_at.strftime('%d/%m/%Y %I:%M %p') if attempt.attempted_at else '—' }}</td>
+            <td class="py-3 px-3 font-semibold text-slate-900 dark:text-white">{{ attempt.identifier }}</td>
+            <td class="py-3 px-3">
+              {% if attempt.is_successful %}
+              <span class="px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold">Success</span>
+              {% else %}
+              <span class="px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 font-semibold">Failed</span>
+              {% endif %}
+            </td>
+            <td class="py-3 px-3 font-mono text-slate-600 dark:text-slate-400">{{ attempt.ip_address or '—' }}</td>
+            <td class="py-3 px-3 text-slate-500 dark:text-slate-400 truncate max-w-xs" title="{{ attempt.user_agent }}">{{ attempt.user_agent or '—' }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="5" class="text-center py-6 text-slate-400 dark:text-slate-600">No login attempts recorded.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 </div>
+
+<script>
+function switchAuditTab(tab) {
+  // Hide all panels
+  document.getElementById('panel-admin').classList.add('hidden');
+  document.getElementById('panel-activity').classList.add('hidden');
+  document.getElementById('panel-logins').classList.add('hidden');
+
+  // Reset tab button states
+  const resetTab = (id) => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.className = "px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 focus:outline-none transition-all";
+    }
+  };
+  resetTab('tab-admin');
+  resetTab('tab-activity');
+  resetTab('tab-logins');
+
+  // Show active panel & update active tab style
+  const activePanel = document.getElementById('panel-' + tab);
+  if (activePanel) activePanel.classList.remove('hidden');
+  
+  const activeBtn = document.getElementById('tab-' + tab);
+  if (activeBtn) {
+    activeBtn.className = "px-4 py-2 text-xs font-bold uppercase tracking-wider border-b-2 border-primary-500 text-primary-600 dark:text-primary-400 focus:outline-none transition-all";
+  }
+}
+</script>
 {% endblock %}

@@ -12,6 +12,12 @@
   </div>
 </div>
 
+<!-- Scope Selector Tabs -->
+<div class="mb-6 flex border-b border-gray-200 dark:border-gray-700">
+  <a href="?scope=mine" class="px-4 py-2 text-sm font-semibold border-b-2 {% if scope == 'mine' %}border-brand-500 text-brand-600 dark:text-brand-400{% else %}border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300{% endif %}">My Reports</a>
+  <a href="?scope=all" class="px-4 py-2 text-sm font-semibold border-b-2 {% if scope == 'all' %}border-brand-500 text-brand-600 dark:text-brand-400{% else %}border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300{% endif %}">All Reports</a>
+</div>
+
 <div class="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 hover:border-brand-300 dark:hover:border-brand-500/30 transition-colors">
   {% if reports.items %}
   <div class="overflow-x-auto -mx-5 px-5">
@@ -26,6 +32,9 @@
           <th class="text-left py-3 px-3">Serious</th>
           <th class="text-left py-3 px-3">WHO-UMC</th>
           <th class="text-left py-3 px-3">Naranjo</th>
+          {% if scope == 'all' %}
+          <th class="text-left py-3 px-3">Submitted By</th>
+          {% endif %}
           <th class="text-left py-3 px-3">Date</th>
         </tr>
       </thead>
@@ -53,6 +62,11 @@
           {{r.naranjo_score if r.naranjo_score is not none else '—'}}
           <span class="text-xs text-gray-400 dark:text-gray-500 ml-1 font-normal">{{r.naranjo_category or ''}}</span>
         </td>
+        {% if scope == 'all' %}
+        <td class="py-3 px-3 font-medium text-gray-700 dark:text-gray-300">
+          {{r.author.display_name if r.author else 'System/Admin'}}
+        </td>
+        {% endif %}
         <td class="py-3 px-3 text-gray-500 dark:text-gray-400">{{r.created_at.strftime('%d/%m/%Y') if r.created_at else '—'}}</td>
       </tr>
       {% endfor %}
@@ -63,11 +77,11 @@
   <!-- Pagination -->
   <div class="flex justify-center items-center gap-3 mt-6 border-t border-gray-100 dark:border-gray-700/50 pt-4">
     {% if reports.has_prev %}
-    <a href="?page={{reports.prev_num}}" class="border border-brand-500 text-brand-500 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors">← Previous</a>
+    <a href="?page={{reports.prev_num}}&scope={{scope}}" class="border border-brand-500 text-brand-500 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors">← Previous</a>
     {% endif %}
     <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">Page {{reports.page}} of {{reports.pages}}</span>
     {% if reports.has_next %}
-    <a href="?page={{reports.next_num}}" class="border border-brand-500 text-brand-500 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors">Next →</a>
+    <a href="?page={{reports.next_num}}&scope={{scope}}" class="border border-brand-500 text-brand-500 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-brand-50 dark:hover:bg-brand-500/10 transition-colors">Next →</a>
     {% endif %}
   </div>
   {% else %}

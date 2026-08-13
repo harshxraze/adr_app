@@ -21,7 +21,8 @@ from flask_cors import CORS
 from flask_login import LoginManager, current_user, login_user, login_required, logout_user
 from sqlalchemy import inspect, or_, text
 from werkzeug.security import check_password_hash, generate_password_hash
-from database.models import User
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
+from database.models import User, AdminActionLog
 
 # Google Cloud credentials from environment variable (for Render deployment)
 google_creds_json = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS_JSON')
@@ -34,7 +35,7 @@ if google_creds_json:
 
 from config import Config
 from database import db, init_db
-from database.models import ADRReport, SuspectedMedication, ConcomitantMedication, ModelTrainingLog
+from database.models import ADRReport, SuspectedMedication, ConcomitantMedication, ModelTrainingLog, ReportAttachment, UserActivityLog, LoginAttempt, ReportRevision
 from ml.naranjo import calculate_naranjo_score, NARANJO_QUESTIONS, extract_naranjo_features_from_report
 from ml.who_umc import assess_who_umc, assess_from_api_payload, WHO_UMC_CATEGORIES, run_assessment
 
@@ -116,6 +117,11 @@ def _ensure_user_schema():
             alter_statements.append('ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP')
         else:
             alter_statements.append('ALTER TABLE users ADD COLUMN created_at DATETIME')
+    if 'last_login' not in existing_columns:
+        if dialect_name == 'postgresql':
+            alter_statements.append('ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP')
+        else:
+            alter_statements.append('ALTER TABLE users ADD COLUMN last_login DATETIME')
 
     for statement in alter_statements:
         db.session.execute(text(statement))
@@ -126,6 +132,29 @@ def _ensure_user_schema():
     db.session.execute(text("UPDATE users SET role = 'user' WHERE role IS NULL OR role = ''"))
     db.session.execute(text("UPDATE users SET email = username || '@local.invalid' WHERE email IS NULL OR email = ''"))
     db.session.commit()
+
+
+def _ensure_report_schema():
+    """Add user_id FK column to adr_reports if missing, backfill existing rows."""
+    inspector = inspect(db.engine)
+    if 'adr_reports' not in inspector.get_table_names():
+        return
+
+    existing_columns = {column['name'] for column in inspector.get_columns('adr_reports')}
+    dialect_name = db.engine.dialect.name
+
+    if 'user_id' not in existing_columns:
+        if dialect_name == 'postgresql':
+            db.session.execute(text('ALTER TABLE adr_reports ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id)'))
+        else:
+            db.session.execute(text('ALTER TABLE adr_reports ADD COLUMN user_id INTEGER REFERENCES users(id)'))
+        db.session.commit()
+
+        # Backfill: assign orphan reports to the first admin user
+        admin_user = User.query.filter_by(role='admin').first()
+        if admin_user:
+            db.session.execute(text(f'UPDATE adr_reports SET user_id = {admin_user.id} WHERE user_id IS NULL'))
+            db.session.commit()
 
 
 def _bootstrap_admin_account():
@@ -177,22 +206,60 @@ def _get_user_by_identifier(identifier):
 
 
 def _login_user_and_redirect(user, next_url):
-    login_user(user)
+    login_user(user, remember=True)
+    session.permanent = True
+    user.last_login = datetime.utcnow()
+    try:
+        attempt = LoginAttempt(
+            identifier=user.username,
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent'),
+            is_successful=True
+        )
+        db.session.add(attempt)
+    except Exception as e:
+        print(f"Error logging login attempt: {e}")
+    db.session.commit()
     flash('Signed in successfully.', 'success')
     return redirect(_safe_next_url(next_url))
 
 # Ensure directories exist
 os.makedirs(app.config.get('UPLOAD_FOLDER', 'uploads'), exist_ok=True)
 
+# Invite link serializer (48-hour expiry)
+invite_serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+
 with app.app_context():
     _ensure_user_schema()
     _bootstrap_admin_account()
+    _ensure_report_schema()
 
 
 def _safe_next_url(next_url):
     if next_url and next_url.startswith('/'):
         return next_url
     return url_for('index')
+
+
+def log_activity(action, report_id=None, details=None):
+    """Log user activity to database for auditing."""
+    try:
+        user_id = current_user.id if (current_user and current_user.is_authenticated) else None
+        if not user_id:
+            return
+        log = UserActivityLog(
+            user_id=user_id,
+            action=action,
+            report_id=report_id,
+            details=details,
+            ip_address=request.remote_addr if request else None,
+            user_agent=request.headers.get('User-Agent') if request else None
+        )
+        db.session.add(log)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Failed to log activity: {e}")
 
 
 # ==================== PAGE ROUTES ====================
@@ -215,6 +282,20 @@ def login():
                 user.set_password(password)
                 db.session.commit()
             return _login_user_and_redirect(user, next_url)
+
+        # Log failed attempt
+        try:
+            attempt = LoginAttempt(
+                identifier=identifier,
+                ip_address=request.remote_addr,
+                user_agent=request.headers.get('User-Agent'),
+                is_successful=False
+            )
+            db.session.add(attempt)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error logging failed login attempt: {e}")
 
         error_message = 'Invalid username or password.'
         flash(error_message, 'error')
@@ -260,7 +341,7 @@ def signup():
         password_hash=generate_password_hash(password),
         display_name=display_name,
         department=department,
-        role='user',
+        role='user',  # SECURITY: public signup NEVER creates admins
     )
     db.session.add(user)
     db.session.commit()
@@ -271,8 +352,10 @@ def signup():
 
 @app.route('/logout')
 def logout():
-    logout_user()
+    if current_user and current_user.is_authenticated:
+        log_activity('logout')
     session.clear()
+    logout_user()
     return redirect(url_for('login'))
 
 
@@ -284,15 +367,24 @@ def forbidden(_error):
 @login_required
 def index():
     """Dashboard / Home page."""
+    log_activity('view_dashboard')
     today_date = datetime.utcnow().date()
     month_start = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-    total_reports = ADRReport.query.count()
-    serious_reports = ADRReport.query.filter_by(is_serious=True).count()
-    recent_reports = ADRReport.query.order_by(ADRReport.created_at.desc()).limit(7).all()
-    who_certain_count = ADRReport.query.filter_by(who_umc_category='Certain').count()
-    naranjo_probable_count = ADRReport.query.filter_by(naranjo_category='Probable').count()
-    this_month_count = ADRReport.query.filter(ADRReport.created_at >= month_start).count()
+    if current_user.is_admin:
+        total_reports = ADRReport.query.count()
+        serious_reports = ADRReport.query.filter_by(is_serious=True).count()
+        recent_reports = ADRReport.query.order_by(ADRReport.created_at.desc()).limit(7).all()
+        who_certain_count = ADRReport.query.filter_by(who_umc_category='Certain').count()
+        naranjo_probable_count = ADRReport.query.filter_by(naranjo_category='Probable').count()
+        this_month_count = ADRReport.query.filter(ADRReport.created_at >= month_start).count()
+    else:
+        total_reports = ADRReport.query.filter_by(user_id=current_user.id).count()
+        serious_reports = ADRReport.query.filter_by(user_id=current_user.id, is_serious=True).count()
+        recent_reports = ADRReport.query.filter_by(user_id=current_user.id).order_by(ADRReport.created_at.desc()).limit(7).all()
+        who_certain_count = ADRReport.query.filter_by(user_id=current_user.id, who_umc_category='Certain').count()
+        naranjo_probable_count = ADRReport.query.filter_by(user_id=current_user.id, naranjo_category='Probable').count()
+        this_month_count = ADRReport.query.filter_by(user_id=current_user.id).filter(ADRReport.created_at >= month_start).count()
 
     return render_template('index.html',
                            total_reports=total_reports,
@@ -315,13 +407,22 @@ def adr_form():
 @app.route('/reports')
 @login_required
 def reports_list():
-    """View all ADR reports."""
+    """View ADR reports — scoped by ownership."""
     page = request.args.get('page', 1, type=int)
+    scope = request.args.get('scope', 'mine')  # 'mine' or 'all'
     per_page = 20
-    reports = ADRReport.query.order_by(ADRReport.created_at.desc()).paginate(
+    log_activity('view_reports', details=f"scope={scope}")
+
+    if scope == 'all' and current_user.is_admin:
+        query = ADRReport.query
+    else:
+        scope = 'mine'
+        query = ADRReport.query.filter_by(user_id=current_user.id)
+
+    reports = query.order_by(ADRReport.created_at.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
-    return render_template('reports.html', reports=reports)
+    return render_template('reports.html', reports=reports, scope=scope)
 
 
 @app.route('/report/<int:report_id>')
@@ -329,7 +430,23 @@ def reports_list():
 def view_report(report_id):
     """View a single ADR report with causality assessment."""
     report = ADRReport.query.get_or_404(report_id)
-    return render_template('report_detail.html', report=report)
+    log_activity('view_report', report_id=report_id)
+    if not (current_user.is_admin or report.user_id == current_user.id):
+        from flask import abort
+        abort(403)
+    can_modify = current_user.is_admin or report.user_id == current_user.id
+    return render_template('report_detail.html', report=report, can_modify=can_modify)
+
+
+@app.route('/report/<int:report_id>/edit')
+@login_required
+def edit_report_page(report_id):
+    """Edit report page."""
+    report = ADRReport.query.get_or_404(report_id)
+    if not (current_user.is_admin or report.user_id == current_user.id):
+        from flask import abort
+        abort(403)
+    return render_template('form.html', edit_report_id=report_id)
 
 
 @app.route('/analytics')
@@ -359,6 +476,19 @@ def admin_dashboard():
     users = User.query.order_by(User.created_at.desc()).all()
     recent_reports = ADRReport.query.order_by(ADRReport.created_at.desc()).limit(10).all()
 
+    # Per-user report counts
+    report_count_rows = db.session.query(
+        ADRReport.user_id, db.func.count(ADRReport.id)
+    ).group_by(ADRReport.user_id).all()
+    report_counts = {uid: cnt for uid, cnt in report_count_rows}
+
+    # Audit logs
+    audit_logs = AdminActionLog.query.order_by(AdminActionLog.performed_at.desc()).limit(30).all()
+    user_activity_logs = UserActivityLog.query.order_by(UserActivityLog.timestamp.desc()).limit(30).all()
+    login_attempts = LoginAttempt.query.order_by(LoginAttempt.attempted_at.desc()).limit(30).all()
+
+    invite_url = session.pop('invite_url', None)
+
     return render_template(
         'admin_dashboard.html',
         users=users,
@@ -366,6 +496,11 @@ def admin_dashboard():
         total_users=len(users),
         admin_users=len([user for user in users if user.role == 'admin']),
         regular_users=len([user for user in users if user.role != 'admin']),
+        report_counts=report_counts,
+        audit_logs=audit_logs,
+        user_activity_logs=user_activity_logs,
+        login_attempts=login_attempts,
+        invite_url=invite_url
     )
 
 
@@ -376,6 +511,12 @@ def update_user_role(user_id):
     if not user:
         return render_template('403.html'), 403
 
+    # SECURITY: require admin's own password to confirm privilege changes
+    admin_password = (request.form.get('admin_password') or '').strip()
+    if not admin_password or not current_user.check_password(admin_password):
+        flash('Incorrect admin password. Role change denied.', 'error')
+        return redirect(url_for('admin_dashboard'))
+
     new_role = (request.form.get('role') or '').strip().lower()
     if new_role not in {'user', 'admin'}:
         flash('Invalid role selected.', 'error')
@@ -385,9 +526,93 @@ def update_user_role(user_id):
         flash('You cannot change your own role from this page.', 'error')
         return redirect(url_for('admin_dashboard'))
 
+    old_role = user.role
     user.role = new_role
+
+    # Audit log
+    action = 'grant_admin' if new_role == 'admin' else 'revoke_admin'
+    log_entry = AdminActionLog(
+        admin_user_id=current_user.id,
+        action=action,
+        target_user_id=user.id,
+        details=f'Role changed from {old_role} to {new_role}',
+    )
+    db.session.add(log_entry)
     db.session.commit()
     flash(f'Updated {user.display_name} to {new_role} role.', 'success')
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/invite', methods=['POST'])
+@admin_required
+def admin_invite():
+    """Generate a time-limited invite link to grant admin role."""
+    target_email = (request.form.get('invite_email') or '').strip().lower()
+    admin_password = (request.form.get('admin_password') or '').strip()
+
+    if not target_email:
+        flash('Email address is required.', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+    if not admin_password or not current_user.check_password(admin_password):
+        flash('Incorrect admin password. Invite denied.', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+    # Generate signed token (48hr expiry)
+    token = invite_serializer.dumps({'email': target_email, 'inviter_id': current_user.id}, salt='admin-invite')
+    invite_url = url_for('accept_admin_invite', token=token, _external=True)
+
+    # Audit log
+    log_entry = AdminActionLog(
+        admin_user_id=current_user.id,
+        action='invite_sent',
+        target_email=target_email,
+        details=f'Admin invite link generated for {target_email}',
+    )
+    db.session.add(log_entry)
+    db.session.commit()
+
+    flash(f'Invite link generated for {target_email}. Share it securely — expires in 48 hours.', 'success')
+    session['invite_url'] = invite_url
+    return redirect(url_for('admin_dashboard'))
+
+
+@app.route('/admin/accept-invite/<token>')
+@login_required
+def accept_admin_invite(token):
+    """Accept an admin invite link — promotes the logged-in user."""
+    try:
+        data = invite_serializer.loads(token, salt='admin-invite', max_age=48 * 3600)  # 48hr expiry
+    except SignatureExpired:
+        flash('This invite link has expired (48-hour limit).', 'error')
+        return redirect(url_for('index'))
+    except BadSignature:
+        flash('Invalid invite link.', 'error')
+        return redirect(url_for('index'))
+
+    invited_email = data.get('email', '').lower()
+    if current_user.email.lower() != invited_email:
+        flash(f'This invite was issued for {invited_email}. Please log in with that account.', 'error')
+        return redirect(url_for('index'))
+
+    if current_user.role == 'admin':
+        flash('You already have admin privileges.', 'info')
+        return redirect(url_for('admin_dashboard'))
+
+    current_user.role = 'admin'
+
+    # Audit log
+    log_entry = AdminActionLog(
+        admin_user_id=data.get('inviter_id', current_user.id),
+        action='invite_accepted',
+        target_user_id=current_user.id,
+        target_email=invited_email,
+        details=f'{current_user.display_name} accepted admin invite',
+    )
+    db.session.add(log_entry)
+    db.session.commit()
+
+    flash('You have been promoted to admin! Welcome.', 'success')
     return redirect(url_for('admin_dashboard'))
 
 
@@ -400,8 +625,9 @@ def submit_report():
     try:
         data = request.get_json()
 
-        # Create main report
+        # Create main report (linked to current user)
         report = ADRReport(
+            user_id=current_user.id,
             case_type=data.get('case_type'),
             reg_no=data.get('reg_no'),
             amc_report_no=data.get('amc_report_no'),
@@ -531,7 +757,18 @@ def submit_report():
         report.naranjo_category = best_naranjo_category
 
         db.session.add(report)
+
+        # Link attachment if present
+        attachment_id = data.get('attachment_id')
+        if attachment_id:
+            attachment = ReportAttachment.query.get(attachment_id)
+            if attachment and attachment.uploaded_by_id == current_user.id:
+                attachment.report = report
+
         db.session.commit()
+
+        # Log creation
+        log_activity('create_report', report_id=report.id)
 
         return jsonify({
             'success': True,
@@ -551,7 +788,11 @@ def submit_report():
 @login_required
 def get_reports():
     """Get all reports as JSON."""
-    reports = ADRReport.query.order_by(ADRReport.created_at.desc()).all()
+    log_activity('view_reports_api')
+    if current_user.is_admin:
+        reports = ADRReport.query.order_by(ADRReport.created_at.desc()).all()
+    else:
+        reports = ADRReport.query.filter_by(user_id=current_user.id).order_by(ADRReport.created_at.desc()).all()
     return jsonify([r.to_dict() for r in reports])
 
 
@@ -560,7 +801,197 @@ def get_reports():
 def get_report(report_id):
     """Get a single report."""
     report = ADRReport.query.get_or_404(report_id)
+    if not (current_user.is_admin or report.user_id == current_user.id):
+        return jsonify({'success': False, 'error': 'Permission denied'}), 403
+    log_activity('view_report_api', report_id=report_id)
     return jsonify(report.to_dict())
+
+
+@app.route('/api/report/<int:report_id>', methods=['PUT'])
+@login_required
+def update_report(report_id):
+    """Update an existing ADR report, creating a revision history log."""
+    report = ADRReport.query.get_or_404(report_id)
+    if not (current_user.is_admin or report.user_id == current_user.id):
+        return jsonify({'success': False, 'error': 'Permission denied'}), 403
+
+    try:
+        data = request.get_json()
+
+        # Step 1: Capture previous state as JSON
+        previous_state_dict = report.to_dict()
+        previous_state_json = json.dumps(previous_state_dict)
+
+        # Step 2: Determine what fields changed for the change summary
+        changes = []
+        
+        # Simple fields mapping
+        fields = [
+            'case_type', 'reg_no', 'amc_report_no', 'worldwide_unique_no',
+            'patient_initials', 'patient_age', 'gender', 'weight_kg',
+            'reaction_start_date', 'reaction_stop_date', 'reaction_description',
+            'relevant_investigations', 'medical_history', 'is_serious',
+            'seriousness_death', 'seriousness_life_threatening', 'seriousness_hospitalization',
+            'seriousness_congenital_anomaly', 'seriousness_disability', 'seriousness_other',
+            'outcome', 'additional_info', 'reporter_name', 'reporter_address',
+            'reporter_pin', 'reporter_email', 'reporter_contact', 'reporter_occupation',
+            'report_date'
+        ]
+        
+        for field in fields:
+            if field in data:
+                new_val = data[field]
+                if field == 'weight_kg' and new_val is not None:
+                    try:
+                        new_val = float(new_val)
+                    except ValueError:
+                        new_val = None
+                old_val = getattr(report, field)
+                if old_val != new_val:
+                    setattr(report, field, new_val)
+                    changes.append(field)
+
+        # Update suspected medications
+        if 'medications' in data:
+            old_med_names = [m.drug_name for m in report.medications if m.drug_name]
+            
+            # Delete old suspected medications
+            for med in list(report.medications):
+                db.session.delete(med)
+            
+            for med_data in data['medications']:
+                med = SuspectedMedication(
+                    serial_no=med_data.get('serial_no'),
+                    drug_name=med_data.get('drug_name'),
+                    manufacturer=med_data.get('manufacturer'),
+                    batch_no=med_data.get('batch_no'),
+                    expiry_date=med_data.get('expiry_date'),
+                    dose=med_data.get('dose'),
+                    route=med_data.get('route'),
+                    frequency=med_data.get('frequency'),
+                    therapy_start_date=med_data.get('therapy_start_date'),
+                    therapy_stop_date=med_data.get('therapy_stop_date'),
+                    indication=med_data.get('indication'),
+                    action_taken=med_data.get('action_taken'),
+                    reintroduction_result=med_data.get('reintroduction_result'),
+                    reintroduction_dose=med_data.get('reintroduction_dose'),
+                )
+                report.medications.append(med)
+            
+            new_med_names = [m.drug_name for m in report.medications if m.drug_name]
+            if set(old_med_names) != set(new_med_names):
+                changes.append('medications')
+
+        # Update concomitant medications
+        if 'concomitant_medications' in data:
+            for con in list(report.concomitant_medications):
+                db.session.delete(con)
+                
+            for con_data in data['concomitant_medications']:
+                con = ConcomitantMedication(
+                    serial_no=con_data.get('serial_no'),
+                    drug_name=con_data.get('drug_name'),
+                    dose=con_data.get('dose'),
+                    route=con_data.get('route'),
+                    frequency=con_data.get('frequency'),
+                    therapy_start_date=con_data.get('therapy_start_date'),
+                    therapy_stop_date=con_data.get('therapy_stop_date'),
+                    indication=con_data.get('indication'),
+                )
+                report.concomitant_medications.append(con)
+            changes.append('concomitant_medications')
+
+        # Recalculate causality for suspected medications
+        severity_order = [
+            "Certain",
+            "Probable/Likely",
+            "Possible",
+            "Unlikely",
+            "Conditional/Unclassified",
+            "Unassessable/Unclassifiable",
+        ]
+        naranjo_order = ["Definite", "Probable", "Possible", "Doubtful"]
+
+        best_who_category = "Unassessable/Unclassifiable"
+        best_who_rank = len(severity_order)
+        
+        best_naranjo_score = -10
+        best_naranjo_category = "Doubtful"
+        best_naranjo_rank = len(naranjo_order)
+
+        report_dict = data.copy()
+
+        for idx, med in enumerate(report.medications):
+            if not med.drug_name:
+                continue
+            
+            # WHO-UMC causality
+            who_res = run_assessment(report_dict, med.drug_name)
+            who_cat = who_res.get('category', 'Unassessable/Unclassifiable')
+            
+            # Naranjo causality
+            if idx == 0 and data.get('naranjo_answers'):
+                naranjo_answers = data.get('naranjo_answers')
+            else:
+                naranjo_answers = extract_naranjo_features_from_report(report_dict, med.drug_name)
+                
+            naranjo_res = calculate_naranjo_score(naranjo_answers)
+            n_cat = naranjo_res.get('category', 'Doubtful')
+            n_score = naranjo_res.get('score', 0)
+            
+            med.causality_assessment = f"WHO-UMC: {who_cat} | Naranjo: {n_cat} (Score: {n_score})"
+            
+            who_rank = severity_order.index(who_cat) if who_cat in severity_order else len(severity_order)
+            if who_rank < best_who_rank:
+                best_who_rank = who_rank
+                best_who_category = who_cat
+                
+            n_rank = naranjo_order.index(n_cat) if n_cat in naranjo_order else len(naranjo_order)
+            if n_rank < best_naranjo_rank:
+                best_naranjo_rank = n_rank
+                best_naranjo_category = n_cat
+            if n_score > best_naranjo_score:
+                best_naranjo_score = n_score
+
+        report.who_umc_category = best_who_category
+        report.naranjo_score = best_naranjo_score if best_naranjo_score != -10 else None
+        report.naranjo_category = best_naranjo_category
+
+        # Step 3: Create Revision History record if something changed
+        if changes:
+            change_summary = f"Updated: {', '.join(changes)}"
+            revision = ReportRevision(
+                report_id=report.id,
+                revised_by_id=current_user.id,
+                previous_state=previous_state_json,
+                change_summary=change_summary
+            )
+            db.session.add(revision)
+            
+            # Link attachment if passed and not already linked
+            attachment_id = data.get('attachment_id')
+            if attachment_id:
+                attachment = ReportAttachment.query.get(attachment_id)
+                if attachment and attachment.uploaded_by_id == current_user.id:
+                    attachment.report = report
+
+            db.session.commit()
+            log_activity('edit_report', report_id=report.id, details=change_summary)
+        else:
+            db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'report_id': report.id,
+            'who_umc_category': report.who_umc_category,
+            'naranjo_score': report.naranjo_score,
+            'naranjo_category': report.naranjo_category,
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 400
 
 
 @app.route('/api/report/<int:report_id>', methods=['DELETE'])
@@ -568,6 +999,10 @@ def get_report(report_id):
 def delete_report(report_id):
     """Delete a report."""
     report = ADRReport.query.get_or_404(report_id)
+    # Check ownership or admin role
+    if not (current_user.role == 'admin' or report.user_id == current_user.id):
+        return jsonify({'success': False, 'error': 'Permission denied'}), 403
+    log_activity('delete_report', report_id=report_id, details=f"Report of patient {report.patient_initials} deleted")
     db.session.delete(report)
     db.session.commit()
     return jsonify({'success': True})
@@ -621,17 +1056,64 @@ def ocr_form():
     except Exception:
         return jsonify({'error': 'Invalid base64 image data'}), 400
 
+    # Save attachment to disk and database
+    try:
+        import uuid
+        file_uuid = uuid.uuid4().hex
+        filename = f"adr_scan_{file_uuid}.jpg"
+        upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads')
+        os.makedirs(upload_folder, exist_ok=True)
+        file_path = os.path.join(upload_folder, filename)
+        
+        with open(file_path, 'wb') as f:
+            f.write(image_bytes)
+            
+        attachment = ReportAttachment(
+            filename=filename,
+            storage_url=f"/uploads/{filename}",
+            uploaded_by_id=current_user.id
+        )
+        db.session.add(attachment)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        traceback.print_exc()
+        return jsonify({'error': f'Failed to store uploaded attachment: {str(e)}'}), 500
+
     if not GEMINI_AVAILABLE:
         return jsonify({'error': 'Gemini API is not configured. Set GEMINI_API_KEY environment variable.'}), 503
 
     try:
         # Step 1 & 2: Use Gemini Multimodal to extract fields directly from the image bytes
         extracted = parse_adr_fields_from_image_with_gemini(image_bytes)
+        
+        # Log activity
+        log_activity('upload_attachment', details=f"Uploaded {filename} for OCR scanning")
+        
+        # Inject attachment_id into extracted dictionary
+        if isinstance(extracted, dict):
+            extracted['attachment_id'] = attachment.id
+            
         return jsonify(extracted)
 
     except Exception as e:
         traceback.print_exc()
         return jsonify({'error': f'OCR processing failed: {str(e)}'}), 500
+
+
+@app.route('/uploads/<filename>')
+@login_required
+def serve_upload(filename):
+    """Serve uploaded images securely."""
+    attachment = ReportAttachment.query.filter_by(filename=filename).first_or_404()
+    if not current_user.is_admin:
+        if attachment.uploaded_by_id != current_user.id:
+            if not attachment.report or attachment.report.user_id != current_user.id:
+                from flask import abort
+                abort(403)
+                
+    upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads')
+    return send_file(os.path.join(upload_folder, filename))
 
 
 def parse_adr_fields_from_image_with_gemini(image_bytes):
@@ -754,28 +1236,42 @@ D. REPORTER DETAILS:
 def get_analytics_stats():
     """Get analytics statistics."""
     try:
-        total = ADRReport.query.count()
-        serious = ADRReport.query.filter_by(is_serious=True).count()
+        if current_user.is_admin:
+            total = ADRReport.query.count()
+            serious = ADRReport.query.filter_by(is_serious=True).count()
+            male = ADRReport.query.filter_by(gender='M').count()
+            female = ADRReport.query.filter_by(gender='F').count()
+            other_gender = ADRReport.query.filter(ADRReport.gender.notin_(['M', 'F'])).count()
 
-        # Gender distribution
-        male = ADRReport.query.filter_by(gender='M').count()
-        female = ADRReport.query.filter_by(gender='F').count()
-        other_gender = ADRReport.query.filter(ADRReport.gender.notin_(['M', 'F'])).count()
+            outcomes = db.session.query(
+                ADRReport.outcome, db.func.count(ADRReport.id)
+            ).group_by(ADRReport.outcome).all()
 
-        # Outcome distribution
-        outcomes = db.session.query(
-            ADRReport.outcome, db.func.count(ADRReport.id)
-        ).group_by(ADRReport.outcome).all()
+            who_dist = db.session.query(
+                ADRReport.who_umc_category, db.func.count(ADRReport.id)
+            ).group_by(ADRReport.who_umc_category).all()
 
-        # WHO-UMC distribution
-        who_dist = db.session.query(
-            ADRReport.who_umc_category, db.func.count(ADRReport.id)
-        ).group_by(ADRReport.who_umc_category).all()
+            naranjo_dist = db.session.query(
+                ADRReport.naranjo_category, db.func.count(ADRReport.id)
+            ).group_by(ADRReport.naranjo_category).all()
+        else:
+            total = ADRReport.query.filter_by(user_id=current_user.id).count()
+            serious = ADRReport.query.filter_by(user_id=current_user.id, is_serious=True).count()
+            male = ADRReport.query.filter_by(user_id=current_user.id, gender='M').count()
+            female = ADRReport.query.filter_by(user_id=current_user.id, gender='F').count()
+            other_gender = ADRReport.query.filter_by(user_id=current_user.id).filter(ADRReport.gender.notin_(['M', 'F'])).count()
 
-        # Naranjo distribution
-        naranjo_dist = db.session.query(
-            ADRReport.naranjo_category, db.func.count(ADRReport.id)
-        ).group_by(ADRReport.naranjo_category).all()
+            outcomes = db.session.query(
+                ADRReport.outcome, db.func.count(ADRReport.id)
+            ).filter(ADRReport.user_id == current_user.id).group_by(ADRReport.outcome).all()
+
+            who_dist = db.session.query(
+                ADRReport.who_umc_category, db.func.count(ADRReport.id)
+            ).filter(ADRReport.user_id == current_user.id).group_by(ADRReport.who_umc_category).all()
+
+            naranjo_dist = db.session.query(
+                ADRReport.naranjo_category, db.func.count(ADRReport.id)
+            ).filter(ADRReport.user_id == current_user.id).group_by(ADRReport.naranjo_category).all()
 
         # Recent reports by month — handle both SQLite and PostgreSQL
         db_url = app.config.get('SQLALCHEMY_DATABASE_URI', '')
@@ -784,15 +1280,21 @@ def get_analytics_stats():
         else:
             month_col = db.func.to_char(ADRReport.created_at, 'YYYY-MM')
 
-        reports_by_month = db.session.query(
+        rbm_query = db.session.query(
             month_col,
             db.func.count(ADRReport.id)
-        ).group_by(month_col).order_by(month_col).limit(12).all()
+        )
+        if not current_user.is_admin:
+            rbm_query = rbm_query.filter(ADRReport.user_id == current_user.id)
+        reports_by_month = rbm_query.group_by(month_col).order_by(month_col).limit(12).all()
 
         # Top drugs
-        top_drugs = db.session.query(
+        td_query = db.session.query(
             SuspectedMedication.drug_name, db.func.count(SuspectedMedication.id)
-        ).filter(SuspectedMedication.drug_name.isnot(None)).group_by(
+        ).filter(SuspectedMedication.drug_name.isnot(None))
+        if not current_user.is_admin:
+            td_query = td_query.join(ADRReport).filter(ADRReport.user_id == current_user.id)
+        top_drugs = td_query.group_by(
             SuspectedMedication.drug_name
         ).order_by(db.func.count(SuspectedMedication.id).desc()).limit(10).all()
 
@@ -808,6 +1310,31 @@ def get_analytics_stats():
             'reports_by_month': {str(k): v for k, v in reports_by_month},
             'top_drugs': {str(k): v for k, v in top_drugs},
         })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/analytics/admin-stats', methods=['GET'])
+@admin_required
+def get_admin_analytics_stats():
+    """Get extended per-user analytics for admins."""
+    try:
+        users = User.query.all()
+        user_list = []
+        for u in users:
+            report_count = ADRReport.query.filter_by(user_id=u.id).count()
+            user_list.append({
+                'id': u.id,
+                'username': u.username,
+                'display_name': u.display_name,
+                'role': u.role,
+                'department': u.department,
+                'last_login': u.last_login.strftime('%d/%m/%Y %I:%M %p') if u.last_login else 'Never',
+                'created_at': u.created_at.strftime('%d/%m/%Y') if u.created_at else 'N/A',
+                'report_count': report_count
+            })
+        return jsonify({'users': user_list})
     except Exception as e:
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
@@ -839,11 +1366,14 @@ def get_age_group(age_str):
 @login_required
 def api_dose_age():
     try:
-        results = db.session.query(
+        da_query = db.session.query(
             SuspectedMedication.drug_name,
             SuspectedMedication.dose,
             ADRReport.patient_age
-        ).join(ADRReport, SuspectedMedication.report_id == ADRReport.id).all()
+        ).join(ADRReport, SuspectedMedication.report_id == ADRReport.id)
+        if not current_user.is_admin:
+            da_query = da_query.filter(ADRReport.user_id == current_user.id)
+        results = da_query.all()
         
         data = {}
         for drug, dose, age_str in results:
@@ -878,6 +1408,7 @@ def api_dose_age():
 @app.route('/api/analytics/export-excel')
 @login_required
 def api_export_excel():
+    log_activity('export_excel')
     try:
         from openpyxl import Workbook
         from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -916,7 +1447,10 @@ def api_export_excel():
             cell.alignment = header_align
             cell.border = thin_border
             
-        reports = ADRReport.query.order_by(ADRReport.id.desc()).all()
+        if current_user.is_admin:
+            reports = ADRReport.query.order_by(ADRReport.id.desc()).all()
+        else:
+            reports = ADRReport.query.filter_by(user_id=current_user.id).order_by(ADRReport.id.desc()).all()
         for r in reports:
             ser_list = []
             if r.seriousness_death: ser_list.append("Death")
@@ -954,7 +1488,10 @@ def api_export_excel():
             cell.alignment = header_align
             cell.border = thin_border
             
-        meds = SuspectedMedication.query.join(ADRReport).order_by(SuspectedMedication.report_id.desc()).all()
+        meds_query = SuspectedMedication.query.join(ADRReport)
+        if not current_user.is_admin:
+            meds_query = meds_query.filter(ADRReport.user_id == current_user.id)
+        meds = meds_query.order_by(SuspectedMedication.report_id.desc()).all()
         for m in meds:
             row_data = [
                 m.id, m.report_id, m.report.patient_initials if m.report else '', m.drug_name, m.manufacturer, m.batch_no,

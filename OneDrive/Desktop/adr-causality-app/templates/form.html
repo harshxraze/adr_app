@@ -472,6 +472,8 @@
 </form>
 
 <script>
+const editReportId = {{ edit_report_id if edit_report_id else 'null' }};
+
 function toggleSeriousness(isSerious) {
   const container = document.getElementById('seriousness_details_container');
   if (isSerious) {
@@ -483,14 +485,182 @@ function toggleSeriousness(isSerious) {
   }
 }
 
-// ===== OCR Pre-fill =====
+// ===== OCR Pre-fill & Edit Load =====
 document.addEventListener('DOMContentLoaded', function() {
+  if (editReportId) {
+    // Fetch and populate form for editing
+    fetch(`/api/report/${editReportId}`)
+      .then(res => res.json())
+      .then(d => {
+        // Change submit button text
+        const btn = document.getElementById('submitBtn');
+        if (btn) btn.textContent = '🔬 Save Changes & Recalculate';
+        
+        // Show edit message instead of OCR prefill banner
+        const banner = document.getElementById('ocrBanner');
+        if (banner) {
+          banner.classList.remove('hidden');
+          banner.className = banner.className.replace('bg-amber-50', 'bg-blue-50').replace('border-amber-200', 'border-blue-200').replace('text-amber-800', 'text-blue-800');
+          const smText = banner.querySelector('.text-sm');
+          if (smText) smText.textContent = `Editing Report #${editReportId} — all changes will be audit-logged in revision history.`;
+          const iconText = banner.querySelector('.text-xl');
+          if (iconText) iconText.textContent = 'ℹ️';
+        }
+
+        // Combine reporter name + address
+        let reporterNameAndAddress = '';
+        if (d.reporter_name) reporterNameAndAddress += d.reporter_name;
+        if (d.reporter_address) {
+          if (reporterNameAndAddress) reporterNameAndAddress += '\n';
+          reporterNameAndAddress += d.reporter_address;
+        }
+
+        // Map simple fields
+        const map = {
+          'f_reg_no': d.reg_no,
+          'f_amc_report_no': d.amc_report_no,
+          'f_worldwide_unique_no': d.worldwide_unique_no,
+          'f_patient_initials': d.patient_initials,
+          'f_patient_age': d.patient_age,
+          'f_weight_kg': d.weight_kg,
+          'f_reaction_description': d.reaction_description,
+          'f_reaction_start_date': d.reaction_start_date,
+          'f_reaction_stop_date': d.reaction_stop_date,
+          'f_relevant_investigations': d.relevant_investigations,
+          'f_medical_history': d.medical_history,
+          'f_reporter_name': reporterNameAndAddress || null,
+          'f_reporter_designation': d.reporter_occupation,
+          'f_reporter_pin': d.reporter_pin,
+          'f_reporter_email': d.reporter_email,
+          'f_reporter_contact': d.reporter_contact,
+          'f_report_date': d.report_date,
+          'f_additional_info': d.additional_info,
+          'f_receiving_personnel': d.receiving_personnel,
+        };
+
+        for (const [id, val] of Object.entries(map)) {
+          if (val != null && val !== '') {
+            const el = document.getElementById(id);
+            if (el) el.value = val;
+          }
+        }
+
+        // Case type radio
+        if (d.case_type) {
+          const ct = d.case_type.toLowerCase();
+          if (ct === 'initial') {
+            document.getElementById('case_type_initial').checked = true;
+          } else {
+            document.getElementById('case_type_follow').checked = true;
+          }
+        }
+
+        // Medications
+        const meds = d.medications || [];
+        for (let i = 0; i < Math.min(meds.length, 4); i++) {
+          const m = meds[i];
+          const row = i + 1;
+          const setByName = (name, val) => {
+            if (val != null && val !== '') {
+              const el = document.querySelector(`[name="${name}"]`);
+              if (el) el.value = val;
+            }
+          };
+
+          setByName(`med_drug_${row}`, m.drug_name);
+          setByName(`med_mfr_${row}`, m.manufacturer);
+          setByName(`med_batch_${row}`, m.batch_no);
+          setByName(`med_exp_${row}`, m.expiry_date);
+          setByName(`med_dose_${row}`, m.dose);
+          setByName(`med_route_${row}`, m.route);
+          setByName(`med_freq_${row}`, m.frequency);
+          setByName(`med_start_${row}`, m.therapy_start_date);
+          setByName(`med_stop_${row}`, m.therapy_stop_date);
+          setByName(`med_ind_${row}`, m.indication);
+
+          if (m.action_taken) {
+            const actionVal = m.action_taken.toLowerCase().replace(/\s+/g, '_');
+            const radio = document.querySelector(`input[name="action_taken_${row}"][value="${actionVal}"]`);
+            if (radio) radio.checked = true;
+          }
+
+          if (m.reintroduction_result) {
+            const reintroVal = m.reintroduction_result.toLowerCase().replace(/\s+/g, '_');
+            const radio = document.querySelector(`input[name="reintroduction_${row}"][value="${reintroVal}"]`);
+            if (radio) radio.checked = true;
+          }
+
+          if (m.reintroduction_dose) {
+            setByName(`med_reintro_dose_${row}`, m.reintroduction_dose);
+          }
+        }
+
+        // Concomitant medications
+        const conMeds = d.concomitant_medications || [];
+        for (let i = 0; i < Math.min(conMeds.length, 3); i++) {
+          const c = conMeds[i];
+          const row = i + 1;
+          const setByName = (name, val) => {
+            if (val != null && val !== '') {
+              const el = document.querySelector(`[name="${name}"]`);
+              if (el) el.value = val;
+            }
+          };
+          setByName(`con_drug_${row}`, c.drug_name);
+          setByName(`con_dose_${row}`, c.dose);
+          setByName(`con_route_${row}`, c.route);
+          setByName(`con_freq_${row}`, c.frequency);
+          setByName(`con_start_${row}`, c.therapy_start_date);
+          setByName(`con_stop_${row}`, c.therapy_stop_date);
+          setByName(`con_ind_${row}`, c.indication);
+        }
+
+        // Gender mapping
+        if (d.gender) {
+          const g = d.gender.toUpperCase();
+          const genderRadio = document.querySelector(`input[name="gender"][value="${g}"]`);
+          if (genderRadio) genderRadio.checked = true;
+        }
+
+        // Seriousness
+        if (d.is_serious) {
+          document.getElementById('f_is_serious_yes').checked = true;
+          toggleSeriousness(true);
+          if (d.seriousness_death) document.getElementById('f_seriousness_death').checked = true;
+          if (d.seriousness_life_threatening) document.getElementById('f_seriousness_life_threatening').checked = true;
+          if (d.seriousness_hospitalization) document.getElementById('f_seriousness_hospitalization').checked = true;
+          if (d.seriousness_disability) document.getElementById('f_seriousness_disability').checked = true;
+          if (d.seriousness_congenital_anomaly) document.getElementById('f_seriousness_congenital_anomaly').checked = true;
+          if (d.seriousness_other) document.getElementById('f_seriousness_other').checked = true;
+        } else {
+          document.getElementById('f_is_serious_no').checked = true;
+          toggleSeriousness(false);
+        }
+
+        // Outcome
+        if (d.outcome) {
+          const o = d.outcome.toLowerCase().replace(/\s+/g, '_');
+          const outcomeSelect = document.getElementById('f_outcome');
+          if (outcomeSelect) outcomeSelect.value = o;
+        }
+      })
+      .catch(err => {
+        if (typeof showToast !== 'undefined') {
+          showToast('Failed to load report details: ' + err.message, 'error');
+        }
+      });
+    return;
+  }
+
   const ocrData = sessionStorage.getItem('ocr_prefill');
   if (!ocrData) return;
 
   try {
     const d = JSON.parse(ocrData);
     sessionStorage.removeItem('ocr_prefill');
+    if (d.attachment_id) {
+      sessionStorage.setItem('ocr_attachment_id', d.attachment_id);
+    }
 
     // Show banner
     document.getElementById('ocrBanner').classList.remove('hidden');
@@ -746,6 +916,8 @@ async function submitReport() {
     }
   }
 
+  const attachmentId = sessionStorage.getItem('ocr_attachment_id');
+
   const payload = {
     case_type: caseType,
     patient_initials: val('f_patient_initials'),
@@ -777,22 +949,28 @@ async function submitReport() {
     worldwide_unique_no: val('f_worldwide_unique_no'),
     medications: medications,
     concomitant_medications: concomitant_medications,
-    receiving_personnel: val('f_receiving_personnel')
+    receiving_personnel: val('f_receiving_personnel'),
+    attachment_id: attachmentId ? parseInt(attachmentId) : null
   };
 
   // No required validations
 
+  const url = editReportId ? `/api/report/${editReportId}` : '/api/submit-report';
+  const method = editReportId ? 'PUT' : 'POST';
+
   try {
-    const res = await fetch('/api/submit-report', {
-      method: 'POST',
+    const res = await fetch(url, {
+      method: method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
     const data = await res.json();
 
     if (data.success) {
+      sessionStorage.removeItem('ocr_attachment_id');
       if (typeof showToast !== 'undefined') {
-        showToast('Report submitted! WHO-UMC: ' + data.who_umc_category + ', Naranjo: ' + data.naranjo_score + ' (' + data.naranjo_category + ')', 'success');
+        const msg = editReportId ? 'Report updated successfully!' : 'Report submitted! WHO-UMC: ' + data.who_umc_category + ', Naranjo: ' + data.naranjo_score + ' (' + data.naranjo_category + ')';
+        showToast(msg, 'success');
       }
       setTimeout(() => { window.location.href = '/report/' + data.report_id; }, 1200);
     } else {
@@ -800,7 +978,7 @@ async function submitReport() {
     }
   } catch (err) {
     btn.disabled = false;
-    btn.textContent = '🔬 Submit & Run Causality Assessment';
+    btn.textContent = editReportId ? '🔬 Save Changes & Recalculate' : '🔬 Submit & Run Causality Assessment';
     if (typeof showToast !== 'undefined') {
       showToast('Error: ' + err.message, 'error');
     } else {

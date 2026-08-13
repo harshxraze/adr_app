@@ -8,7 +8,10 @@
   </div>
   <div class="flex gap-2 w-full sm:w-auto">
     <a href="/reports" class="flex-1 sm:flex-initial border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 px-5 py-2.5 rounded-lg font-semibold text-sm hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-center">← Back</a>
+    {% if can_modify %}
+    <a href="/report/{{report.id}}/edit" class="flex-1 sm:flex-initial bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors text-center">✏️ Edit</a>
     <button class="flex-1 sm:flex-initial bg-rose-600 hover:bg-rose-700 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors text-center" onclick="deleteReport({{report.id}})">🗑 Delete</button>
+    {% endif %}
   </div>
 </div>
 
@@ -185,6 +188,24 @@
         </div>
       </div>
     </div>
+
+    <!-- Revision History -->
+    {% if report.revisions %}
+    <div class="bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 hover:border-brand-300 dark:hover:border-brand-500/30 transition-colors">
+      <h3 class="font-bold text-gray-900 dark:text-white text-base mb-4 pb-2 border-b border-gray-100 dark:border-gray-700/30">📜 Revision History</h3>
+      <div class="space-y-4">
+        {% for rev in report.revisions|sort(attribute='revised_at', reverse=True) %}
+        <div class="border-b border-gray-100 dark:border-gray-800 last:border-0 pb-3 last:pb-0">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs font-semibold text-brand-600 dark:text-brand-400">{{ rev.revised_by.display_name if rev.revised_by else 'System' }}</span>
+            <span class="text-[10px] text-gray-400 dark:text-gray-500">{{ rev.revised_at.strftime('%d %b %Y, %I:%M %p') if rev.revised_at else '' }}</span>
+          </div>
+          <p class="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">{{ rev.change_summary or 'No details provided' }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

@@ -2,8 +2,9 @@ services:
   - type: web
     name: adr-analyzer
     runtime: python
+    rootDir: OneDrive/Desktop/adr-causality-app
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    startCommand: gunicorn app:app --workers 2 --threads 2 --timeout 120
     envVars:
       - key: DATABASE_URL
         sync: false

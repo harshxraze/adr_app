@@ -85,6 +85,35 @@
     <div class="relative h-[200px]"><canvas id="drugsChart"></canvas></div>
   </div>
 
+  {% if current_user.role == 'admin' %}
+  <!-- Admin-Only User Activity Section -->
+  <div class="lg:col-span-2 bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-xl p-5 hover:border-brand-300 dark:hover:border-brand-500/30 transition-colors">
+    <div class="flex justify-between items-center mb-5 pb-3 border-b border-gray-100 dark:border-gray-700/30">
+      <h3 class="font-bold text-gray-900 dark:text-white text-base">👥 User Activity & Reporting Rates</h3>
+      <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400">Admin Only</span>
+    </div>
+    
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-left">
+        <thead>
+          <tr class="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-700/50">
+            <th class="py-3 px-3">User</th>
+            <th class="py-3 px-3">Role</th>
+            <th class="py-3 px-3">Department</th>
+            <th class="py-3 px-3 text-center">Reports Submitted</th>
+            <th class="py-3 px-3">Last Active Session</th>
+          </tr>
+        </thead>
+        <tbody id="adminUserStatsTable">
+          <tr>
+            <td colspan="5" class="text-center py-6 text-gray-400 dark:text-gray-600">Loading user activity data...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
 </div>
 {% endblock %}
 
@@ -362,10 +391,52 @@ function resetDoseAgeDisplay() {
   }
 }
 
+{% if current_user.role == 'admin' %}
+// Load Admin User Stats
+function loadAdminUserStats() {
+  fetch('/api/analytics/admin-stats')
+    .then(r => r.json())
+    .then(data => {
+      const tableBody = document.getElementById('adminUserStatsTable');
+      if (!tableBody) return;
+      if (!data.users || data.users.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-gray-400 dark:text-gray-600">No users found.</td></tr>`;
+        return;
+      }
+      tableBody.innerHTML = data.users.map(u => {
+        const roleBadge = u.role === 'admin' 
+          ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400">Admin</span>`
+          : `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 dark:bg-gray-700/30 text-gray-600 dark:text-gray-400">User</span>`;
+        return `
+          <tr class="border-t border-gray-100 dark:border-gray-700/30 hover:bg-gray-50 dark:hover:bg-gray-700/10 transition-colors">
+            <td class="py-3 px-3">
+              <div class="font-semibold text-gray-900 dark:text-white">${u.display_name}</div>
+              <div class="text-xs text-gray-400 dark:text-gray-500">@${u.username}</div>
+            </td>
+            <td class="py-3 px-3">${roleBadge}</td>
+            <td class="py-3 px-3 text-gray-600 dark:text-gray-400">${u.department || '—'}</td>
+            <td class="py-3 px-3 text-center font-bold text-brand-600 dark:text-brand-400">${u.report_count}</td>
+            <td class="py-3 px-3 text-xs text-gray-500 dark:text-gray-400">${u.last_login}</td>
+          </tr>
+        `;
+      }).join('');
+    })
+    .catch(e => {
+      const tableBody = document.getElementById('adminUserStatsTable');
+      if (tableBody) {
+        tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-red-500">Failed to load statistics.</td></tr>`;
+      }
+    });
+}
+{% endif %}
+
 // Redraw charts on theme change to keep color harmony
 document.addEventListener('DOMContentLoaded', () => {
   loadDashboardData();
   loadDoseAgeData();
+  {% if current_user.role == 'admin' %}
+  loadAdminUserStats();
+  {% endif %}
   
   // Monitor theme changes to adjust scales dynamically
   const observer = new MutationObserver((mutations) => {

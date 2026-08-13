@@ -16,6 +16,7 @@ class ADRReport(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Case type
@@ -79,6 +80,7 @@ class ADRReport(db.Model):
     # Relationships
     medications = db.relationship('SuspectedMedication', backref='report', lazy=True, cascade='all, delete-orphan')
     concomitant_medications = db.relationship('ConcomitantMedication', backref='report', lazy=True, cascade='all, delete-orphan')
+    author = db.relationship('User', backref='reports', lazy=True, foreign_keys=[user_id])
 
     def to_dict(self):
         return {
@@ -87,8 +89,10 @@ class ADRReport(db.Model):
             'case_type': self.case_type,
             'reg_no': self.reg_no,
             'amc_report_no': self.amc_report_no,
+            'worldwide_unique_no': self.worldwide_unique_no,
             'patient_initials': self.patient_initials,
             'patient_age': self.patient_age,
+            'patient_dob': self.patient_dob,
             'gender': self.gender,
             'weight_kg': self.weight_kg,
             'reaction_start_date': self.reaction_start_date,
@@ -98,6 +102,7 @@ class ADRReport(db.Model):
             'medical_history': self.medical_history,
             'is_serious': self.is_serious,
             'seriousness_death': self.seriousness_death,
+            'seriousness_death_date': self.seriousness_death_date,
             'seriousness_life_threatening': self.seriousness_life_threatening,
             'seriousness_hospitalization': self.seriousness_hospitalization,
             'seriousness_congenital_anomaly': self.seriousness_congenital_anomaly,
@@ -106,6 +111,10 @@ class ADRReport(db.Model):
             'outcome': self.outcome,
             'additional_info': self.additional_info,
             'reporter_name': self.reporter_name,
+            'reporter_address': self.reporter_address,
+            'reporter_pin': self.reporter_pin,
+            'reporter_email': self.reporter_email,
+            'reporter_contact': self.reporter_contact,
             'reporter_occupation': self.reporter_occupation,
             'report_date': self.report_date,
             'naranjo_score': self.naranjo_score,
@@ -113,6 +122,8 @@ class ADRReport(db.Model):
             'who_umc_category': self.who_umc_category,
             'ml_prediction': self.ml_prediction,
             'ml_confidence': self.ml_confidence,
+            'user_id': self.user_id,
+            'author_name': self.author.display_name if self.author else None,
             'medications': [m.to_dict() for m in self.medications],
             'concomitant_medications': [c.to_dict() for c in self.concomitant_medications],
         }
@@ -209,6 +220,7 @@ class User(UserMixin, db.Model):
     department = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(20), nullable=False, default='user')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login = db.Column(db.DateTime, nullable=True)
 
     @property
     def avatar(self):
@@ -235,6 +247,7 @@ class User(UserMixin, db.Model):
         return {
             'id': self.id,
             'username': self.username,
+            'last_login': self.last_login.isoformat() if self.last_login else None,
             'email': self.email,
             'display_name': self.display_name,
             'department': self.department,
@@ -273,4 +286,124 @@ class ModelTrainingLog(db.Model):
             'feature_count': self.feature_count,
             'is_active': self.is_active,
             'notes': self.notes,
+        }
+
+
+class AdminActionLog(db.Model):
+    """Audit trail for admin privilege changes — hospital compliance."""
+    __tablename__ = 'admin_action_logs'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    performed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    admin_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    action = db.Column(db.String(50), nullable=False)  # 'grant_admin', 'revoke_admin', 'invite_sent', 'invite_accepted'
+    target_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    target_email = db.Column(db.String(120), nullable=True)
+    details = db.Column(db.Text, nullable=True)
+
+    admin_user = db.relationship('User', foreign_keys=[admin_user_id], backref='admin_actions_performed')
+    target_user = db.relationship('User', foreign_keys=[target_user_id], backref='admin_actions_received')
+
+
+class ReportAttachment(db.Model):
+    """Clinical files/images scanned for OCR or attached to reports."""
+    __tablename__ = 'report_attachments'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    report_id = db.Column(db.Integer, db.ForeignKey('adr_reports.id'), nullable=True)
+    filename = db.Column(db.String(256), nullable=False)
+    storage_url = db.Column(db.String(512), nullable=False)
+    uploaded_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    uploaded_by = db.relationship('User', backref='attachments')
+    report = db.relationship('ADRReport', backref='attachments')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'report_id': self.report_id,
+            'filename': self.filename,
+            'storage_url': self.storage_url,
+            'uploaded_by_id': self.uploaded_by_id,
+            'uploaded_at': self.uploaded_at.isoformat() if self.uploaded_at else None
+        }
+
+
+class UserActivityLog(db.Model):
+    """Detailed patient data access logs for clinical compliance (HIPAA)."""
+    __tablename__ = 'user_activity_logs'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    action = db.Column(db.String(100), nullable=False)  # 'create_report', 'delete_report', 'view_report', 'view_reports', 'export_excel', 'view_dashboard'
+    report_id = db.Column(db.Integer, db.ForeignKey('adr_reports.id'), nullable=True)
+    details = db.Column(db.Text, nullable=True)
+    ip_address = db.Column(db.String(45), nullable=True)
+    user_agent = db.Column(db.String(256), nullable=True)
+
+    user = db.relationship('User', backref='activity_logs')
+    report = db.relationship('ADRReport', backref='activity_logs')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
+            'user_id': self.user_id,
+            'action': self.action,
+            'report_id': self.report_id,
+            'details': self.details,
+            'ip_address': self.ip_address,
+            'user_agent': self.user_agent
+        }
+
+
+class LoginAttempt(db.Model):
+    """Forensic logs of all successful and failed authentication attempts."""
+    __tablename__ = 'login_attempts'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    attempted_at = db.Column(db.DateTime, default=datetime.utcnow)
+    identifier = db.Column(db.String(120), nullable=False)
+    ip_address = db.Column(db.String(45), nullable=True)
+    user_agent = db.Column(db.String(256), nullable=True)
+    is_successful = db.Column(db.Boolean, nullable=False)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'attempted_at': self.attempted_at.isoformat() if self.attempted_at else None,
+            'identifier': self.identifier,
+            'ip_address': self.ip_address,
+            'user_agent': self.user_agent,
+            'is_successful': self.is_successful
+        }
+
+
+class ReportRevision(db.Model):
+    """Tracks historical changes/revisions made to clinical ADR reports."""
+    __tablename__ = 'report_revisions'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    report_id = db.Column(db.Integer, db.ForeignKey('adr_reports.id', ondelete='CASCADE'), nullable=False)
+    revised_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    revised_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Store the full previous state of the report as JSON to allow differential tracking or restoration
+    previous_state = db.Column(db.Text, nullable=False)
+    
+    # Human-readable change summary, e.g. "Updated patient age and suspected medication dosage"
+    change_summary = db.Column(db.Text, nullable=True)
+
+    revised_by = db.relationship('User', backref='report_revisions')
+    report = db.relationship('ADRReport', backref=db.backref('revisions', cascade='all, delete-orphan', passive_deletes=True))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'report_id': self.report_id,
+            'revised_by': self.revised_by.display_name if self.revised_by else 'Unknown',
+            'revised_at': self.revised_at.isoformat() if self.revised_at else None,
+            'change_summary': self.change_summary
         }
