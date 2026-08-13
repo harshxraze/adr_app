@@ -178,6 +178,15 @@ def _bootstrap_admin_account():
         if not admin_user.email:
             admin_user.email = admin_email
             changed = True
+        # Always re-sync password from env so Render restarts pick up changes
+        if admin_password_hash:
+            if admin_user.password_hash != admin_password_hash:
+                admin_user.password_hash = admin_password_hash
+                changed = True
+        elif admin_password:
+            if not admin_user.check_password(admin_password):
+                admin_user.password_hash = generate_password_hash(admin_password)
+                changed = True
         if changed:
             db.session.commit()
         return
