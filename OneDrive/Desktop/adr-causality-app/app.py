@@ -750,6 +750,7 @@ def submit_report():
             # 1. WHO-UMC causality
             who_res = run_assessment(report_dict, med.drug_name)
             who_cat = who_res.get('category', 'Unassessable/Unclassifiable')
+            who_score = who_res.get('score', 0)
             
             # 2. Naranjo causality
             if idx == 0 and data.get('naranjo_answers'):
@@ -762,7 +763,7 @@ def submit_report():
             n_score = naranjo_res.get('score', 0)
             
             # Save on SuspectedMedication model
-            med.causality_assessment = f"WHO-UMC: {who_cat} | Naranjo: {n_cat} (Score: {n_score})"
+            med.causality_assessment = f"WHO-UMC: {who_cat} (Score: {who_score}) | Naranjo: {n_cat} (Score: {n_score})"
             
             # Track best/worst-case WHO-UMC
             who_rank = severity_order.index(who_cat) if who_cat in severity_order else len(severity_order)
@@ -955,6 +956,7 @@ def update_report(report_id):
             # WHO-UMC causality
             who_res = run_assessment(report_dict, med.drug_name)
             who_cat = who_res.get('category', 'Unassessable/Unclassifiable')
+            who_score = who_res.get('score', 0)
             
             # Naranjo causality
             if idx == 0 and data.get('naranjo_answers'):
@@ -966,7 +968,7 @@ def update_report(report_id):
             n_cat = naranjo_res.get('category', 'Doubtful')
             n_score = naranjo_res.get('score', 0)
             
-            med.causality_assessment = f"WHO-UMC: {who_cat} | Naranjo: {n_cat} (Score: {n_score})"
+            med.causality_assessment = f"WHO-UMC: {who_cat} (Score: {who_score}) | Naranjo: {n_cat} (Score: {n_score})"
             
             who_rank = severity_order.index(who_cat) if who_cat in severity_order else len(severity_order)
             if who_rank < best_who_rank:
@@ -1558,6 +1560,127 @@ def api_export_excel():
             mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             as_attachment=True,
             download_name="adr_reports_export.xlsx"
+        )
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/report/<int:report_id>/export-excel')
+@login_required
+def api_export_single_report_excel(report_id):
+    log_activity('export_single_report_excel', report_id=report_id)
+    try:
+        report = ADRReport.query.get_or_404(report_id)
+        if not (current_user.is_admin or report.user_id == current_user.id):
+            return jsonify({'error': 'Unauthorized'}), 403
+
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from io import BytesIO
+
+        wb = Workbook()
+        ws_report = wb.active
+        ws_report.title = f"Report #{report.id}"
+
+        headers_reports = [
+            "Report ID", "Created At", "Case Type", "Patient Initials", "Age", "Gender", "Weight (kg)",
+            "Reaction Start", "Reaction Stop", "Reaction Description", "Is Serious",
+            "Seriousness Reasons", "Outcome", "Relevant Investigations", "Medical History",
+            "Naranjo Score", "Naranjo Category", "WHO-UMC Category",
+            "Reporter Name", "Reporter Occupation", "Reporter Contact"
+        ]
+        ws_report.append(headers_reports)
+
+        header_font = Font(name="Arial", size=11, bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="8B1A1A", end_color="8B1A1A", fill_type="solid")
+        header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        thin_border = Border(
+            left=Side(style='thin', color='DDDDDD'),
+            right=Side(style='thin', color='DDDDDD'),
+            top=Side(style='thin', color='DDDDDD'),
+            bottom=Side(style='thin', color='DDDDDD')
+        )
+
+        for col_idx in range(1, len(headers_reports) + 1):
+            cell = ws_report.cell(row=1, column=col_idx)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_align
+            cell.border = thin_border
+
+        ser_list = []
+        if report.seriousness_death: ser_list.append("Death")
+        if report.seriousness_life_threatening: ser_list.append("Life Threatening")
+        if report.seriousness_hospitalization: ser_list.append("Hospitalization")
+        if report.seriousness_disability: ser_list.append("Disability")
+        if report.seriousness_congenital_anomaly: ser_list.append("Congenital Anomaly")
+        if report.seriousness_other: ser_list.append("Other Medically Important")
+        ser_str = ", ".join(ser_list) if ser_list else ("Yes" if report.is_serious else "No")
+        created_str = report.created_at.strftime('%Y-%m-%d %H:%M') if report.created_at else ''
+
+        row_data = [
+            report.id, created_str, report.case_type, report.patient_initials, report.patient_age, report.gender, report.weight_kg,
+            report.reaction_start_date, report.reaction_stop_date, report.reaction_description,
+            "Yes" if report.is_serious else "No", ser_str, report.outcome, report.relevant_investigations, report.medical_history,
+            report.naranjo_score, report.naranjo_category, report.who_umc_category,
+            report.reporter_name, report.reporter_occupation, report.reporter_contact
+        ]
+        ws_report.append(row_data)
+
+        # Sheet 2: Suspected Medications
+        ws_meds = wb.create_sheet(title="Suspected Medications")
+        headers_meds = [
+            "Medication ID", "Report ID", "Drug Name", "Manufacturer", "Batch No",
+            "Expiry Date", "Dose", "Route", "Frequency", "Therapy Start", "Therapy Stop", "Indication",
+            "Action Taken", "Reintroduction Result", "Causality"
+        ]
+        ws_meds.append(headers_meds)
+
+        for col_idx in range(1, len(headers_meds) + 1):
+            cell = ws_meds.cell(row=1, column=col_idx)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_align
+            cell.border = thin_border
+
+        for m in (report.medications or []):
+            med_data = [
+                m.id, report.id, m.drug_name, m.manufacturer, m.batch_no,
+                m.expiry_date, m.dose, m.route, m.frequency, m.therapy_start_date, m.therapy_stop_date, m.indication,
+                m.action_taken, m.reintroduction_result, m.causality_assessment
+            ]
+            ws_meds.append(med_data)
+
+        for ws in [ws_report, ws_meds]:
+            for col in ws.columns:
+                max_len = 0
+                col_letter = col[0].column_letter
+                for cell in col:
+                    val_str = str(cell.value or '')
+                    if len(val_str) > max_len:
+                        max_len = len(val_str)
+                ws.column_dimensions[col_letter].width = min(max(max_len + 3, 10), 40)
+
+        data_font = Font(name="Arial", size=10)
+        data_align = Alignment(vertical="center")
+        for ws in [ws_report, ws_meds]:
+            for r_idx in range(2, ws.max_row + 1):
+                for c_idx in range(1, ws.max_column + 1):
+                    cell = ws.cell(row=r_idx, column=c_idx)
+                    cell.font = data_font
+                    cell.alignment = data_align
+                    cell.border = thin_border
+
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        return send_file(
+            output,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            as_attachment=True,
+            download_name=f"adr_report_{report.id}.xlsx"
         )
     except Exception as e:
         traceback.print_exc()

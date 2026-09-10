@@ -68,7 +68,7 @@ NARANJO_QUESTIONS = [
     }
 ]
 
-from ml.nlp_extractor import get_clinical_extraction
+from ml.nlp_extractor import get_clinical_extraction, build_clinical_dossier
 
 
 def calculate_naranjo_score(answers):
@@ -114,7 +114,7 @@ def get_naranjo_category(score):
 def extract_naranjo_features_from_report(report_data: dict, target_drug_name: Optional[str] = None) -> list:
     """
     Automatically infers Naranjo answers from ADR report data using a Two-Layer Architecture:
-    1. Clinical NLP extraction of descriptions.
+    1. Clinical NLP extraction of descriptions across all report fields.
     2. Overlay of structured form values.
     """
     # 1. Identify Target Drug Name
@@ -130,18 +130,12 @@ def extract_naranjo_features_from_report(report_data: dict, target_drug_name: Op
     if not target_drug_name:
         target_drug_name = "suspected drug"
 
-    # 2. Extract clinical description details via NLP / Regex fallback
-    description_text = report_data.get('reaction_description') or ""
-    medical_history = report_data.get('medical_history') or ""
-    additional_info = report_data.get('additional_info') or ""
-    relevant_investigations = report_data.get('relevant_investigations') or ""
-    full_text = f"Description: {description_text}. Investigations: {relevant_investigations}. Medical History: {medical_history}. Additional Info: {additional_info}"
-
-    # Identify other suspected medications to pass to cached NLP extractor
+    # 2. Extract clinical context across all fields via build_clinical_dossier
     suspect_drug_names = [m.get('drug_name', '') for m in medications if m.get('drug_name')]
     other_drug_names = tuple(name for name in suspect_drug_names if name.lower() != target_drug_name.lower())
 
-    nlp_res = get_clinical_extraction(full_text, target_drug_name, other_drug_names)
+    dossier = build_clinical_dossier(report_data, target_drug_name)
+    nlp_res = get_clinical_extraction(dossier, target_drug_name, other_drug_names)
     nlp_answers = nlp_res.get("naranjo_answers", ['unknown'] * 10)
 
     # 3. Structured Data Overlay (Structured fields override or supplement NLP findings)

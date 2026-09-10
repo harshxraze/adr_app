@@ -20,6 +20,7 @@
           },
           colors: {
             primary: { 50:'#effdf8',100:'#d9f8ef',200:'#b8efdf',300:'#7ce0c5',400:'#38caa6',500:'#0f766e',600:'#0f5f59',700:'#124b49',800:'#113c3b',900:'#0d2f2e' },
+            brand: { 50:'#eff6ff',100:'#dbeafe',200:'#bfdbfe',300:'#93c5fd',400:'#60a5fa',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8',800:'#1e40af',900:'#1e3a8a' },
           }
         }
       }
@@ -39,6 +40,11 @@
     .slide-in { animation: slideIn 0.3s ease-out; }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     .fade-up { animation: fadeUp 0.35s ease-out; }
+    @media print {
+      #sidebar, header, #sidebarOverlay, .no-print { display: none !important; }
+      body { background: white !important; color: black !important; }
+      main { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+    }
   </style>
   {% block head %}{% endblock %}
 </head>
