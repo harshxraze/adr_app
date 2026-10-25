@@ -175,9 +175,9 @@ Evaluate the case according to these EXACT criteria:
 
 ### 1. WHO-UMC Criteria-Based Scoring Scale:
 - Criteria 1 (Time relationship to drug intake):
-  * "Plausible" (+3): Timing between drug start and reaction onset is pharmacologically and clinically plausible (e.g. onset minutes to days after starting, or expected latency).
-  * "Reasonable" (+2): Timing is reasonable but less immediate or less clear.
-  * "Improbable" (-2): Reaction onset preceded drug administration or latency is biologically incompatible.
+  * "Yes" (+3): Timing between drug start and reaction onset is pharmacologically and clinically plausible (e.g. onset minutes to days after starting, or expected latency).
+  * "Maybe" (+2): Timing is reasonable but less immediate or less clear.
+  * "No" (-2): Reaction onset preceded drug administration or latency is biologically incompatible.
 
 - Criteria 2 (Alternative etiologies - disease or other drugs):
   * "Cannot be explained by disease or other drugs" (+3): No underlying disease or other concurrent medication can explain the event.
@@ -222,7 +222,7 @@ Output a JSON object with this exact structure:
 {{
   "who_umc": {{
     "time_relationship": {{
-      "criterion": "Plausible" | "Reasonable" | "Improbable",
+      "criterion": "Yes" | "Maybe" | "No",
       "score": 3 | 2 | -2,
       "reason": "Brief clinical rationale"
     }},
@@ -303,17 +303,17 @@ def _extract_deterministic_who_and_naranjo(dossier_text: str, target_drug_name: 
 
     # 1. Timeline / Time Relationship
     time_score = 2
-    time_criterion = "Reasonable"
+    time_criterion = "Maybe"
     time_reason = "Timeline between drug initiation and reaction onset is clinically reasonable."
     
     if re.search(r"\b(before\s+taking|prior\s+to\s+starting|preceded\s+drug)\b", text_lower):
         time_score = -2
-        time_criterion = "Improbable (but not impossible)"
+        time_criterion = "No"
         time_reason = "Reaction onset preceded or is incompatible with drug administration timeline."
     elif re.search(r"\b(immediate|within\s+(minutes|hours|24\s+hours|1\s+day|2\s+days|3\s+days)|same\s+day|shortly\s+after)\b", text_lower):
         time_score = 3
-        time_criterion = "Plausible"
-        time_reason = "Plausible and immediate temporal onset following drug intake."
+        time_criterion = "Yes"
+        time_reason = "Yes — plausible and immediate temporal onset following drug intake."
 
     # 2. Alternative Etiologies
     alt_score = 2

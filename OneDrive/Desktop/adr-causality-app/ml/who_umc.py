@@ -2,7 +2,7 @@
 Official WHO-UMC Criteria-Based Scoring Scale Causality Assessment Engine.
 
 Implements the official scoring criteria:
-1. Time relationship to drug intake: Plausible (+3), Reasonable (+2), Improbable (-2)
+1. Time relationship to drug intake: Yes (+3), Maybe (+2), No (-2)
 2. Alternative etiologies: Cannot be explained (+3), Unlikely (+2), Could also be explained (+1), Disease/drugs provide explanation (-2)
 3. Response to withdrawal (Dechallenge): Plausible (+3), Clinically reasonable (+2), Lacking/unclear (0), Negative (-2)
 4. Rechallenge outcome: Satisfactory (+2), Not required/done (0), Negative (-2)
@@ -96,16 +96,16 @@ def assess_who_umc(form_payload: dict, target_drug_name: str = "", nlp_context: 
     # 3. Categorize based on Official Score Thresholds
     if total_score >= 11:
         category = "Certain"
-        reason = f"Total Score: {total_score} pts (>= 11). Plausible timeline (+{s1}), cannot be explained by disease/other drugs (+{s2}), plausible dechallenge (+{s3}), definitive event (+{s5}), satisfactory rechallenge (+{s4})."
+        reason = f"Total Score: {total_score} pts (>= 11). Yes (plausible) timeline (+{s1}), cannot be explained by disease/other drugs (+{s2}), plausible dechallenge (+{s3}), definitive event (+{s5}), satisfactory rechallenge (+{s4})."
     elif total_score >= 7:
         category = "Probable/Likely"
-        reason = f"Total Score: {total_score} pts (7-10). Reasonable timeline (+{s1}), unlikely alternative causes (+{s2}), clinically reasonable dechallenge (+{s3}). Rechallenge not required."
+        reason = f"Total Score: {total_score} pts (7-10). Maybe (reasonable) timeline (+{s1}), unlikely alternative causes (+{s2}), clinically reasonable dechallenge (+{s3}). Rechallenge not required."
     elif total_score >= 3:
         category = "Possible"
-        reason = f"Total Score: {total_score} pts (3-6). Reasonable timeline (+{s1}), but event could be explained by concurrent disease/other drugs (+{s2}), and withdrawal data is unconfirmed (+{s3})."
+        reason = f"Total Score: {total_score} pts (3-6). Maybe (reasonable) timeline (+{s1}), but event could be explained by concurrent disease/other drugs (+{s2}), and withdrawal data is unconfirmed (+{s3})."
     else:
         category = "Unlikely"
-        reason = f"Total Score: {total_score} pts (<= 2). Improbable timeline ({s1}) and/or disease or other therapies provide plausible explanations ({s2})."
+        reason = f"Total Score: {total_score} pts (<= 2). No (improbable) timeline ({s1}) and/or disease or other therapies provide plausible explanations ({s2})."
 
     return {
         "category": category,
