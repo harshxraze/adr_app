@@ -74,6 +74,7 @@ class ADRReport(db.Model):
     naranjo_score = db.Column(db.Integer)
     naranjo_category = db.Column(db.String(50))
     who_umc_category = db.Column(db.String(50))
+    who_umc_differential_note = db.Column(db.Text, nullable=True)
     ml_prediction = db.Column(db.String(50))
     ml_confidence = db.Column(db.Float)
 
@@ -120,6 +121,7 @@ class ADRReport(db.Model):
             'naranjo_score': self.naranjo_score,
             'naranjo_category': self.naranjo_category,
             'who_umc_category': self.who_umc_category,
+            'who_umc_differential_note': self.who_umc_differential_note,
             'ml_prediction': self.ml_prediction,
             'ml_confidence': self.ml_confidence,
             'user_id': self.user_id,

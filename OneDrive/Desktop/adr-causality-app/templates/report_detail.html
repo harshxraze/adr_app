@@ -767,27 +767,9 @@
   <!-- E. CAUSALITY ASSESSMENT (INSIDE FORM) -->
   <div class="bg-red-800 dark:bg-red-950 text-white font-bold px-4 py-1.5 uppercase tracking-wider text-[11px] flex items-center justify-between border-t border-gray-200 dark:border-gray-800">
     <span>E. Causality Assessment</span>
-    <span class="text-[10px] font-normal opacity-90">(WHO-UMC & Naranjo Algorithm)</span>
   </div>
   <div class="p-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <!-- WHO-UMC -->
-      <div>
-        <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">WHO-UMC Scale Category</label>
-        <p class="mt-1 px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-800 dark:text-white font-semibold min-h-[38px] flex items-center">
-          {{report.who_umc_category or '—'}}
-        </p>
-      </div>
-
-      <!-- Naranjo Score & Category -->
-      <div>
-        <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Naranjo Probability Scale</label>
-        <p class="mt-1 px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-800 dark:text-white font-semibold min-h-[38px] flex items-center justify-between">
-          <span>Score: {{report.naranjo_score if report.naranjo_score is not none else '—'}}</span>
-          <span class="text-xs font-semibold text-gray-600 dark:text-gray-400">({{report.naranjo_category or '—'}})</span>
-        </p>
-      </div>
-
+    <div class="grid grid-cols-1 gap-4">
       <!-- Suspected Drug Causality Assessment -->
       <div>
         <label class="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">Suspected Drug Causality</label>

@@ -969,7 +969,7 @@ async function submitReport() {
     if (data.success) {
       sessionStorage.removeItem('ocr_attachment_id');
       if (typeof showToast !== 'undefined') {
-        const msg = editReportId ? 'Report updated successfully!' : 'Report submitted! WHO-UMC: ' + data.who_umc_category + ', Naranjo: ' + data.naranjo_score + ' (' + data.naranjo_category + ')';
+        const msg = editReportId ? 'Report updated successfully!' : 'Report submitted! Causality assessment completed.';
         showToast(msg, 'success');
       }
       setTimeout(() => { window.location.href = '/report/' + data.report_id; }, 1200);
