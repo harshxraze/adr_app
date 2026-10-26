@@ -30,13 +30,13 @@ class Config:
     has_psycopg = False
     has_psycopg2 = False
     try:
-        import psycopg
+        import psycopg  # type: ignore
         has_psycopg = True
     except ImportError:
         pass
 
     try:
-        import psycopg2
+        import psycopg2  # type: ignore
         has_psycopg2 = True
     except ImportError:
         pass
@@ -66,6 +66,19 @@ class Config:
         db_url = db_url.replace('?pgbouncer=true', '').replace('&pgbouncer=true', '')
 
     SQLALCHEMY_DATABASE_URI = db_url
+
+    engine_opts = {
+        'pool_pre_ping': True,
+        'pool_recycle': 300,
+    }
+    if 'postgresql' in db_url:
+        connect_args = {
+            'prepare_threshold': None,
+        }
+        if 'supabase.com' in db_url or 'render.com' in db_url or 'neon.tech' in db_url or 'pooler' in db_url:
+            connect_args['sslmode'] = 'require'
+        engine_opts['connect_args'] = connect_args
+    SQLALCHEMY_ENGINE_OPTIONS = engine_opts
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
