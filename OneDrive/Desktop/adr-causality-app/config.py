@@ -27,21 +27,44 @@ class Config:
 
     db_url = os.environ.get('DATABASE_URL')
     
+    has_psycopg = False
     has_psycopg2 = False
+    try:
+        import psycopg
+        has_psycopg = True
+    except ImportError:
+        pass
+
     try:
         import psycopg2
         has_psycopg2 = True
     except ImportError:
         pass
 
-    if not db_url or not has_psycopg2:
+    if not db_url or (not has_psycopg and not has_psycopg2):
         db_url = f'sqlite:///{os.path.join(BASE_DIR, "adr_database.db")}'
+    else:
+        # Heroku/Render/Supabase often sets postgres:// which SQLAlchemy rejects
+        if db_url.startswith('postgres://'):
+            db_url = db_url.replace('postgres://', 'postgresql://', 1)
 
-    # Heroku/Supabase sometimes uses postgres:// which SQLAlchemy doesn't accept
-    if db_url.startswith('postgres://'):
-        db_url = db_url.replace('postgres://', 'postgresql://', 1)
-    # Strip ?pgbouncer=true — psycopg2 doesn't recognize it as a valid option
-    db_url = db_url.replace('?pgbouncer=true', '').replace('&pgbouncer=true', '')
+        # Match URL scheme with available driver
+        if db_url.startswith('postgresql+psycopg://') and not has_psycopg and has_psycopg2:
+            # Fall back to psycopg2 if psycopg 3 is missing
+            db_url = db_url.replace('postgresql+psycopg://', 'postgresql+psycopg2://', 1)
+        elif db_url.startswith(('postgresql://', 'postgresql+psycopg2://')) and has_psycopg and not has_psycopg2:
+            # Upgrade to psycopg 3 driver if psycopg2 is missing
+            if db_url.startswith('postgresql://'):
+                db_url = db_url.replace('postgresql://', 'postgresql+psycopg://', 1)
+            else:
+                db_url = db_url.replace('postgresql+psycopg2://', 'postgresql+psycopg://', 1)
+        elif db_url.startswith('postgresql://') and has_psycopg:
+            # Prefer modern psycopg 3 driver for PostgreSQL
+            db_url = db_url.replace('postgresql://', 'postgresql+psycopg://', 1)
+
+        # Strip ?pgbouncer=true — drivers don't recognize it as a valid connection parameter
+        db_url = db_url.replace('?pgbouncer=true', '').replace('&pgbouncer=true', '')
+
     SQLALCHEMY_DATABASE_URI = db_url
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
